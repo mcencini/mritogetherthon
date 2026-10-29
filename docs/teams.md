@@ -39,43 +39,41 @@ browser and enter it. Your login is kept in your folder, so you do this once.
 
 ## The pipeline repository
 
-The pipeline repository is announced before the TogetherThon. The pipeline
-lives in one repository, with one folder per stage, and a
-contract per stage that names the files it reads and writes:
-
-| Stage | Day | Reads | Writes |
-|---|---|---|---|
-| `sequence` | 1 | protocol parameters | Pulseq `.seq` |
-| `simulation` | 2 | `.seq`, the placenta phantom | raw data, ISMRMRD `.mrd` |
-| `reconstruction` | 2 | `.mrd` | images, NIfTI `.nii.gz` |
-| `motion` | 3 | `.mrd`, or images | corrected images, NIfTI |
-| `analysis` | 4 | images, NIfTI | parameter maps, NIfTI, and `metrics.json` |
+The pipeline lives in
+[mritogetherthon-pipeline](https://github.com/mcencini/mritogetherthon-pipeline),
+with one folder per stage and a contract per stage, in the stage's README,
+naming the files it reads and writes. Its README explains how the stages are
+run, and how they are joined on day 5.
 
 Each team works in its own folder of the stage it takes on,
-`stages/<stage>/<team>/`, and provides a `run` entry point that honours the
-stage's contract. Because no two teams write in the same folder, their pull
-requests never conflict, whether a stage has one team or several.
+`stages/<stage>/<team>/`, so that the teams' pull requests never conflict,
+whether a stage has one team or several.
 
-On day 5 the stages are joined into the pipeline, which runs them one after the
-other. `pipeline.yaml` names, for each stage, the team whose implementation the
-pipeline runs:
+## Setting up your team
 
-- **A stage with one team** is merged as it is: its implementation is the
-  stage's.
-- **A stage with several teams** is decided first: the teams' implementations
-  run on the same data, their results are compared with the analysis stage's
-  metrics, and the stage's implementation is chosen, or is merged from the best
-  parts of several, by the stage's teams together.
+One member of the team, the team lead, forks the pipeline repository on GitHub
+and adds the teammates to the fork in *Settings → Collaborators*. Every member
+then clones the fork in a JupyterLab terminal:
 
-Because every implementation honours the same contract, any choice runs with
-the other stages, and the comparison is fair.
+```bash
+gh repo clone <team-lead>/mritogetherthon-pipeline
+```
+
+and the team lead starts the team's folder, and pushes it:
+
+```bash
+python -m pipeline new <stage> <team>                    # in Python
+python -m pipeline new <stage> <team> --language julia   # in Julia
+```
 
 ## Every day
 
 1. **Start.** Open JupyterLab and pull your teammates' work:
    `git pull` in your clone.
-2. **Work** in notebooks to explore, and move what works into the stage's
-   `run` entry point, which is what the pipeline calls.
+2. **Work** in notebooks to explore, and move what works into your folder's
+   `run.py` (or `run.jl`), which is what the pipeline runs. Run it, and check
+   the files it writes against the stage's contract, with
+   `python -m pipeline check <stage>/<team>`.
 3. **Commit and push** at the end of the session, and whenever something works:
 
    ```bash
@@ -87,27 +85,12 @@ the other stages, and the comparison is fair.
    Notebooks are committed without their outputs (the environment strips them),
    so that teammates' changes merge as code.
 4. **Open a pull request** from your team's fork to the pipeline repository by
-   the end of each day. Its checks run your stage against the contract in the
-   same environment as yours, so what passes there runs in the final pipeline.
-
-## Setting up your team
-
-One member of the team, the team lead:
-
-1. Forks the pipeline repository on GitHub.
-2. Adds the teammates to the fork in *Settings → Collaborators*.
-3. Creates the team's folder from the stage's template,
-   `stages/<stage>/_template`, and pushes it.
-
-Every member then clones the fork in a JupyterLab terminal:
-
-```bash
-gh repo clone <team-lead>/<pipeline-repository>
-```
+   the end of each day. Its checks run your stage in the same environment as
+   yours, and accept a pull request that changes your team's folder alone.
 
 ## Large files
 
-Do not commit data or results. The environment carries the phantoms and the
-data of the sessions, and each stage writes its results under `outputs/`,
-which git ignores. A stage that needs other data downloads it in its `run`
+Do not commit data or results. The pipeline repository's `data/` holds the
+files every run starts from, and each stage writes its results under
+`outputs/`, which git ignores. A stage that needs other data downloads it in its `run`
 entry point, from a public, permanent address such as Zenodo.
