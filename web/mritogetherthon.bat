@@ -81,7 +81,7 @@ echo The environment is running, with your work in %WORK%.
 set "URL=http://127.0.0.1:%PORT%/lab?token=%TOKEN%"
 set /a TRIES=0
 :poll
-curl -fs -o nul "http://127.0.0.1:%PORT%/api" >nul 2>&1
+call curl -fs -o nul "http://127.0.0.1:%PORT%/api" >nul 2>&1
 if not errorlevel 1 goto :open
 set /a TRIES+=1
 if %TRIES% gtr 60 (
