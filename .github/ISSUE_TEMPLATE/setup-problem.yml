@@ -1,0 +1,52 @@
+name: Setup problem
+description: The environment does not install, start or pass check-setup on your computer.
+labels: [setup]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting early: every problem found before 30 November is one less on day 1.
+        Search the [open setup issues](https://github.com/mcencini/mritogetherthon/issues?q=is%3Aissue+label%3Asetup) first: yours may have an answer already.
+  - type: dropdown
+    id: system
+    attributes:
+      label: Your computer
+      options:
+        - macOS, Apple Silicon (M1 or newer)
+        - macOS, Intel
+        - Windows 10 or 11 with WSL2
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: step
+    attributes:
+      label: Where it stops
+      options:
+        - Installing Docker
+        - Running the launcher
+        - Opening JupyterLab
+        - check-setup shows ❌ or ⚠️
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: check-setup
+    attributes:
+      label: Output of check-setup
+      description: In a JupyterLab terminal run `check-setup`, or `docker exec mritogetherthon check-setup` in your computer's terminal, and paste everything it prints. Leave empty if the environment does not start.
+      render: text
+  - type: textarea
+    id: launcher
+    attributes:
+      label: What the launcher printed
+      description: Paste the launcher's messages, or the content of `~/.mritogetherthon/launcher.log` if you used the Open JupyterLab button.
+      render: text
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. Screenshots are welcome.
+    validations:
+      required: true

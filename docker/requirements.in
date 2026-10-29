@@ -1,0 +1,31 @@
+# The Python of the TogetherThon's image, pinned in requirements.txt with
+#   uv pip compile --universal --python-version 3.12 requirements.in -o requirements.txt
+# torch is installed apart from these, from PyTorch's CPU index.
+
+# Notebooks and the shell
+jupyterlab
+notebook
+ipykernel
+ipywidgets
+jupytext
+nbstripout
+
+# Arrays, plots and files
+numpy
+scipy
+matplotlib
+pandas
+h5py
+ismrmrd
+nibabel
+pydicom
+
+# Day 1: sequence programming
+pypulseq
+
+# Day 2 and 3: reconstruction and motion correction
+sigpy
+
+# Day 4: image quality and diffusion
+scikit-image
+dipy

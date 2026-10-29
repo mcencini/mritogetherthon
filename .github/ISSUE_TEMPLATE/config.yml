@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question, find teammates, get install help
+    url: https://github.com/mcencini/mritogetherthon/discussions
+    about: Questions that are not a problem with the environment or the material belong in Discussions.
+  - name: Code of conduct
+    url: https://mritogether.esmrmb.org/CODE_OF_CONDUCT
+    about: Taking part in MRI Together in any form means agreeing to its code of conduct.

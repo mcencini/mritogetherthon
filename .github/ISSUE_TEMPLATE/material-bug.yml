@@ -1,0 +1,34 @@
+name: Problem in the hands-on material
+description: A notebook or exercise fails, or gives a wrong result, in a working environment.
+labels: [material]
+body:
+  - type: dropdown
+    id: day
+    attributes:
+      label: Day
+      options:
+        - Day 1, sequence programming
+        - Day 2, simulation and reconstruction
+        - Day 3, motion correction
+        - Day 4, analysis
+        - Day 5, pipeline
+    validations:
+      required: true
+  - type: input
+    id: notebook
+    attributes:
+      label: Notebook or file
+      placeholder: day2/02_simulation.ipynb, cell 5
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: The error or the wrong result
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What you did

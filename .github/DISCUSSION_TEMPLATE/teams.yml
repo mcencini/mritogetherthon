@@ -1,0 +1,33 @@
+title: "[Team] "
+body:
+  - type: markdown
+    attributes:
+      value: Looking for a team, or for teammates? Say which stage of the pipeline you would like to work on, and what you bring.
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      multiple: true
+      options:
+        - Sequence (day 1)
+        - Simulation (day 2)
+        - Reconstruction (day 2)
+        - Motion correction (day 3)
+        - Analysis (day 4)
+        - Any
+    validations:
+      required: true
+  - type: input
+    id: timezone
+    attributes:
+      label: Your time zone
+      placeholder: UTC+1
+    validations:
+      required: true
+  - type: textarea
+    id: about
+    attributes:
+      label: About you or your team
+      description: Your background, the tools you know, how many people you are looking for.
+    validations:
+      required: true

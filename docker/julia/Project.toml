@@ -1,0 +1,5 @@
+[deps]
+IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
+KomaMRICore = "4baa4f4d-2ae9-40db-8331-a7d1080e3f4e"
+KomaMRIFiles = "fcf631a6-1c7e-4e88-9e64-b8888386d9dc"
+KomaMRIPlots = "76db0263-63f3-4d26-bb9a-5dba378db904"

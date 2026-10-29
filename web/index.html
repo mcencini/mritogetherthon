@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MRI TogetherThon setup</title>
+<meta name="description" content="Set up the MRI TogetherThon 2026 environment: Docker, one launcher, and JupyterLab on your own computer.">
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f5f6fb;
+  --text: #1d1f2b;
+  --muted: #5d6275;
+  --accent: #3f51b5;
+  --accent-text: #ffffff;
+  --border: #dde0ec;
+  --ok: #0b6b53;
+  --ok-bg: #dff2eb;
+  --wait: #8a5a00;
+  --wait-bg: #fff1d6;
+  --code-bg: #eceef6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14151c;
+    --surface: #1d1f2a;
+    --text: #e8e9f1;
+    --muted: #a3a7ba;
+    --accent: #8c9eff;
+    --accent-text: #11132a;
+    --border: #2f3242;
+    --ok: #7ad9b8;
+    --ok-bg: #173229;
+    --wait: #f2c46d;
+    --wait-bg: #3a2e14;
+    --code-bg: #262938;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 4px; }
+h2 { font-size: 1.2rem; margin: 0 0 8px; }
+.lead { color: var(--muted); margin: 0 0 28px; }
+a { color: var(--accent); }
+section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 0 0 16px;
+}
+.step { display: flex; gap: 14px; }
+.num {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-text);
+  display: grid; place-items: center; font-weight: 700;
+}
+.step > div { min-width: 0; flex: 1; }
+p { margin: 0 0 10px; }
+ul { margin: 0 0 10px; padding-left: 20px; }
+code {
+  background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+  font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+.button {
+  display: inline-block; background: var(--accent); color: var(--accent-text);
+  text-decoration: none; font-weight: 600; padding: 10px 18px; border-radius: 8px;
+  margin: 4px 8px 4px 0;
+}
+.button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.status {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: 8px; margin: 0 0 12px; font-weight: 600;
+  background: var(--wait-bg); color: var(--wait);
+}
+.status.ok { background: var(--ok-bg); color: var(--ok); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+.small { color: var(--muted); font-size: 0.9rem; }
+.links { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.links a {
+  display: block; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
+  text-decoration: none; color: var(--text); background: var(--bg);
+}
+.links a strong { color: var(--accent); display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MRI TogetherThon setup</h1>
+  <p class="lead">30 November – 4 December 2026. Every hands-on session runs in one ready-made
+    environment on your own computer: JupyterLab with Python and Julia, and a shell. Set it up
+    <strong>before 23 November</strong> and join an install session if anything fails.</p>
+
+  <section class="step">
+    <div class="num">1</div>
+    <div>
+      <h2>Install Docker</h2>
+      <p>You need macOS (Intel or Apple Silicon), Linux, or Windows 10/11 with WSL2, with
+        16 GB of memory recommended and about 40 GB of free disk.</p>
+      <ul>
+        <li><strong>macOS, Windows:</strong> <a href="https://docs.docker.com/desktop/">Docker Desktop</a>.
+          On Windows choose the WSL2 backend; <code>wsl --status</code> in a terminal tells you whether WSL2 is on.</li>
+        <li><strong>Linux:</strong> <a href="https://docs.docker.com/engine/install/">Docker Engine</a> or Docker Desktop.</li>
+        <li>In Docker Desktop's <em>Settings → Resources</em>, give Docker at least 8 GB of memory.</li>
+      </ul>
+      <p class="small">Installing Docker needs administrator rights: on a managed computer, ask your IT
+        department early. Docker Desktop is free for personal use, education and small organisations;
+        employees of larger companies may need a paid subscription.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="num">2</div>
+    <div>
+      <h2>Run the launcher</h2>
+      <p id="launcher-hint">Download the launcher for your computer and run it once. It downloads the
+        environment (several GB, once), starts it, and opens JupyterLab.</p>
+      <a class="button" id="launcher" href="mritogetherthon.sh" download>Download the launcher</a>
+      <a class="button secondary" id="launcher-other" href="mritogetherthon.bat" download>Windows launcher</a>
+      <p class="small" id="launcher-run">On macOS and Linux run it in a terminal with
+        <code>sh ~/Downloads/mritogetherthon.sh</code>. On Windows double-click
+        <code>mritogetherthon.bat</code>.</p>
+      <p class="small">Your work lives in the <code>mritogetherthon</code> folder of your home folder,
+        which is your home in JupyterLab: it stays on your computer through every restart and update.</p>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="num">3</div>
+    <div>
+      <h2>Open JupyterLab</h2>
+      <div class="status" id="status" role="status"><span class="dot"></span><span id="status-text">Looking for the environment on this computer…</span></div>
+      <a class="button" href="mritogetherthon:open">Open JupyterLab</a>
+      <p class="small">The button starts the environment, updates it when a newer one is published, and
+        opens JupyterLab. Your browser asks once whether this page may open the launcher. If the
+        button does nothing, run the launcher again.</p>
+      <p class="small">Then open a terminal in JupyterLab and run <code>check-setup</code>.
+        Everything should be ✅.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Help and team work</h2>
+    <div class="links">
+      <a href="https://github.com/mcencini/mritogetherthon/issues/new?template=setup-problem.yml"><strong>Setup problem?</strong>Open an issue with the output of check-setup</a>
+      <a href="https://github.com/mcencini/mritogetherthon/discussions"><strong>Discussions</strong>Questions, install help and team chat</a>
+      <a href="https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md"><strong>Working as a team</strong>Git, saving your work and the final pipeline</a>
+      <a href="https://mritogether.esmrmb.org/26m/programbook"><strong>Program</strong>The five days of the TogetherThon</a>
+    </div>
+  </section>
+</main>
+<script>
+// The launcher for the computer the page is opened on, the other on request.
+const windows = /Win/.test(navigator.platform || navigator.userAgent);
+if (windows) {
+  const main = document.getElementById("launcher");
+  const other = document.getElementById("launcher-other");
+  main.href = "mritogetherthon.bat";
+  other.href = "mritogetherthon.sh";
+  other.textContent = "macOS / Linux launcher";
+}
+
+// Whether JupyterLab answers on this computer. The answer is opaque to the
+// page, which only learns that something listens on the launcher's port.
+const status = document.getElementById("status");
+const text = document.getElementById("status-text");
+async function look() {
+  try {
+    await fetch("http://127.0.0.1:8899/api", { mode: "no-cors", cache: "no-store" });
+    status.classList.add("ok");
+    text.textContent = "The environment is running on this computer.";
+  } catch (error) {
+    status.classList.remove("ok");
+    text.textContent = "The environment is not running: run the launcher, or press Open JupyterLab.";
+  }
+}
+look();
+setInterval(look, 5000);
+</script>
+</body>
+</html>

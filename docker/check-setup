@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""Check that this computer runs the TogetherThon's environment.
+
+Usage: ``check-setup`` in a JupyterLab terminal, or from the computer's own
+shell, with the launcher's container running:
+
+    docker exec mritogetherthon check-setup
+
+Each line is a check: ✅ passed, ⚠️ works but needs your attention, ❌ failed.
+It exits 1 when a check failed. Paste its whole output into a "Setup problem"
+issue when you ask for help.
+"""
+
+import importlib
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import time
+
+HOME = os.environ.get("HOME", "/home/mri")
+GIB = 1024**3
+failed = False
+
+
+def report(status, what, detail=""):
+    global failed
+    failed = failed or status == "fail"
+    mark = {"ok": "✅", "warn": "⚠️ ", "fail": "❌"}[status]
+    print(f"{mark} {what}" + (f": {detail}" if detail else ""), flush=True)
+
+
+def run(*command, timeout=600):
+    done = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+    return done.returncode, (done.stdout + done.stderr).strip()
+
+
+def memory():
+    """The memory this container may use: its cgroup's limit, or the VM's."""
+    try:
+        limit = open("/sys/fs/cgroup/memory.max").read().strip()
+        if limit != "max":
+            return int(limit)
+    except OSError:
+        pass
+    for line in open("/proc/meminfo"):
+        if line.startswith("MemTotal:"):
+            return int(line.split()[1]) * 1024
+    return 0
+
+
+def cpus():
+    try:
+        quota, period = open("/sys/fs/cgroup/cpu.max").read().split()
+        if quota != "max":
+            return int(quota) / int(period)
+    except (OSError, ValueError):
+        pass
+    return len(os.sched_getaffinity(0))
+
+
+def home_is_mounted():
+    for line in open("/proc/self/mountinfo"):
+        if line.split()[4] == HOME:
+            return True
+    return False
+
+
+def check_computer():
+    image = os.environ.get("MRITOGETHERTHON_IMAGE", "built locally")
+    report("ok", "Image", image)
+    report("ok", "Architecture", platform.machine())
+
+    ram = memory() / GIB
+    if ram >= 7.5:
+        report("ok", "Memory for Docker", f"{ram:.1f} GB")
+    elif ram >= 3.5:
+        report("warn", "Memory for Docker", f"{ram:.1f} GB; give Docker at least 8 GB in its settings")
+    else:
+        report("fail", "Memory for Docker", f"{ram:.1f} GB; give Docker at least 8 GB in its settings")
+
+    cores = cpus()
+    report("ok" if cores >= 2 else "warn", "Processors for Docker", f"{cores:g}")
+
+    if home_is_mounted():
+        report("ok", "Your folder", f"{HOME} is saved on your computer")
+    else:
+        report("warn", "Your folder", "not mounted: your work is lost when the container is removed; start it with the launcher")
+
+    try:
+        probe = os.path.join(HOME, ".check-setup")
+        open(probe, "w").write("ok")
+        os.remove(probe)
+        free = shutil.disk_usage(HOME).free / GIB
+        report("ok" if free >= 5 else "warn", "Free space in your folder", f"{free:.0f} GB")
+    except OSError as error:
+        report("fail", "Your folder is writable", str(error))
+
+
+def check_python():
+    for module in ["numpy", "scipy", "matplotlib", "h5py", "ismrmrd", "nibabel",
+                   "pydicom", "pypulseq", "sigpy", "torch", "skimage", "dipy"]:
+        try:
+            version = getattr(importlib.import_module(module), "__version__", "")
+            report("ok", f"Python: {module}", version)
+        except Exception as error:  # noqa: BLE001 - any failure is the report
+            report("fail", f"Python: {module}", f"{type(error).__name__}: {error}")
+
+    try:
+        import pypulseq as pp
+
+        system = pp.Opts(max_grad=32, grad_unit="mT/m", max_slew=130, slew_unit="T/m/s")
+        seq = pp.Sequence(system)
+        rf = pp.make_block_pulse(flip_angle=0.1, duration=1e-3, system=system)
+        seq.add_block(rf)
+        seq.add_block(pp.make_adc(num_samples=64, duration=1e-3, system=system))
+        ok, _ = seq.check_timing()
+        report("ok" if ok else "fail", "Day 1: a Pulseq sequence is designed and checked")
+    except Exception as error:  # noqa: BLE001
+        report("fail", "Day 1: a Pulseq sequence is designed and checked", f"{type(error).__name__}: {error}")
+
+    try:
+        import numpy as np
+        import sigpy as sp
+
+        image = sp.shepp_logan((32, 32))
+        back = sp.ifft(sp.fft(image))
+        assert np.allclose(back, image, atol=1e-6)
+        report("ok", "Day 2: SigPy transforms an image")
+    except Exception as error:  # noqa: BLE001
+        report("fail", "Day 2: SigPy transforms an image", f"{type(error).__name__}: {error}")
+
+
+def check_tools():
+    code, out = run("bart", "version")
+    report("ok" if code == 0 else "fail", "BART", out.splitlines()[0] if out else "")
+
+    started = time.monotonic()
+    code, out = run("julia", "-e", "using KomaMRICore; print(pkgversion(KomaMRICore))")
+    took = time.monotonic() - started
+    if code != 0:
+        report("fail", "Julia: KomaMRI", out[-400:])
+    elif took > 120:
+        report("warn", "Julia: KomaMRI", f"{out}, but it took {took:.0f} s to load: it was compiled again")
+    else:
+        report("ok", "Julia: KomaMRI", f"{out}, loaded in {took:.0f} s")
+
+    code, out = run("jupyter", "kernelspec", "list", "--json")
+    kernels = sorted(json.loads(out)["kernelspecs"]) if code == 0 else []
+    has_julia = any(name.startswith("julia") for name in kernels)
+    report("ok" if "python3" in kernels and has_julia else "fail", "Jupyter kernels", ", ".join(kernels))
+
+
+def check_git():
+    code, out = run("git", "config", "--global", "user.name")
+    if code == 0 and out:
+        report("ok", "git: your name", out)
+    else:
+        report("warn", "git: your name", 'not set: run  git config --global user.name "Your Name"')
+    code, out = run("git", "config", "--global", "user.email")
+    if code == 0 and out:
+        report("ok", "git: your email", out)
+    else:
+        report("warn", "git: your email", "not set: run  git config --global user.email you@example.org")
+    code, _ = run("gh", "auth", "status")
+    if code == 0:
+        report("ok", "GitHub login")
+    else:
+        report("warn", "GitHub login", "not logged in: run  gh auth login  and choose HTTPS and the browser")
+
+
+def main():
+    print(f"MRI TogetherThon setup check, Python {sys.version.split()[0]}\n")
+    check_computer()
+    check_python()
+    check_tools()
+    check_git()
+    print()
+    if failed:
+        print("Some checks failed. Open a 'Setup problem' issue with this output:")
+        print("https://github.com/mcencini/mritogetherthon/issues/new?template=setup-problem.yml")
+    else:
+        print("You are ready for the TogetherThon.")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

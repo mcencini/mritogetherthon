@@ -1,0 +1,21 @@
+title: "[Install help] "
+labels: [setup]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a question about installing or running the environment. If the launcher or check-setup
+        fails, a [Setup problem](https://github.com/mcencini/mritogetherthon/issues/new?template=setup-problem.yml) issue is the faster route.
+  - type: input
+    id: system
+    attributes:
+      label: Your computer
+      placeholder: macOS 15 on Apple Silicon, Windows 11 with WSL2, Ubuntu 24.04...
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
