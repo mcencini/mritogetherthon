@@ -8,5 +8,8 @@ c.ServerApp.open_browser = False
 c.ServerApp.root_dir = "/home/mri"
 # Requests reach the server from Docker's network, not from its own host.
 c.ServerApp.allow_remote_access = True
+# Under rootless Docker the launcher runs the container as its root, which is
+# the attendee on their computer.
+c.ServerApp.allow_root = True
 # A terminal opens a login shell in the attendee's home.
 c.ServerApp.terminado_settings = {"shell_command": ["/bin/bash", "-l"]}

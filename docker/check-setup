@@ -115,9 +115,10 @@ def check_python():
         seq = pp.Sequence(system)
         rf = pp.make_block_pulse(flip_angle=0.1, duration=1e-3, system=system)
         seq.add_block(rf)
-        seq.add_block(pp.make_adc(num_samples=64, duration=1e-3, system=system))
-        ok, _ = seq.check_timing()
-        report("ok" if ok else "fail", "Day 1: a Pulseq sequence is designed and checked")
+        seq.add_block(pp.make_adc(num_samples=64, duration=3.2e-3, system=system))
+        ok, errors = seq.check_timing()
+        report("ok" if ok else "fail", "Day 1: a Pulseq sequence is designed and checked",
+               "" if ok else str(errors))
     except Exception as error:  # noqa: BLE001
         report("fail", "Day 1: a Pulseq sequence is designed and checked", f"{type(error).__name__}: {error}")
 
