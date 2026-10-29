@@ -32,11 +32,20 @@ paid subscription.
 
 ## Set up
 
-1. Install Docker and start it.
-2. Download the launcher from the [hub page](https://mcencini.github.io/mritogetherthon/)
-   and run it once: `sh mritogetherthon.sh` on macOS and Linux, a double-click
-   on `mritogetherthon.bat` on Windows. It downloads the environment (several
-   GB, once), starts it and opens JupyterLab.
+1. Install Docker and start it. The [hub page](https://mcencini.github.io/mritogetherthon/)
+   has the installers for Windows and macOS, and the commands for Linux's
+   package managers (APT, DNF, zypper, pacman).
+2. Run the launcher once. It downloads the environment (several GB, once),
+   starts it and opens JupyterLab.
+   - **Windows:** download
+     [`mritogetherthon.bat`](https://mcencini.github.io/mritogetherthon/mritogetherthon.bat)
+     and double-click it.
+   - **macOS and Linux:** in a terminal,
+
+     ```bash
+     curl -fsSL https://mcencini.github.io/mritogetherthon/mritogetherthon.sh -o ~/mritogetherthon.sh && sh ~/mritogetherthon.sh
+     ```
+
 3. In JupyterLab, open a terminal and run `check-setup`. Every line should be ✅.
 
 From then on the hub page's **Open JupyterLab** button starts the environment,

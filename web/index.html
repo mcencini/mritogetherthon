@@ -89,6 +89,40 @@ code {
   text-decoration: none; color: var(--text); background: var(--bg);
 }
 .links a strong { color: var(--accent); display: block; }
+.tabs, .subtabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tabs {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 4px; margin: 0 0 16px;
+}
+.tabs button, .subtabs button {
+  font: inherit; cursor: pointer; border: 0; border-radius: 7px;
+  background: transparent; color: var(--muted);
+}
+.tabs button { flex: 1; padding: 9px 12px; font-weight: 600; }
+.subtabs { margin: 0 0 10px; border-bottom: 1px solid var(--border); }
+.subtabs button { padding: 6px 12px; border-radius: 6px 6px 0 0; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-text); }
+.subtabs button[aria-selected="true"] {
+  color: var(--accent); font-weight: 600; border-bottom: 2px solid var(--accent);
+}
+.tabs button:focus-visible, .subtabs button:focus-visible, .copy:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.cmd {
+  display: flex; align-items: stretch; margin: 0 0 12px;
+  background: var(--code-bg); border-radius: 8px; overflow: hidden;
+}
+.cmd code {
+  flex: 1; min-width: 0; padding: 10px 12px; background: none; border-radius: 0;
+  overflow-x: auto; white-space: pre; overflow-wrap: normal;
+}
+.copy {
+  flex: none; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  border: 0; border-left: 1px solid var(--border); padding: 0 14px;
+  background: transparent; color: var(--accent);
+}
+.note { margin: 0 0 16px; }
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -98,39 +132,122 @@ code {
     environment on your own computer: JupyterLab with Python and Julia, and a shell. Set it up
     <strong>before 23 November</strong> and join an install session if anything fails.</p>
 
-  <section class="step">
-    <div class="num">1</div>
-    <div>
-      <h2>Install Docker</h2>
-      <p>You need macOS (Intel or Apple Silicon), Linux, or Windows 10/11 with WSL2, with
-        16 GB of memory recommended and about 40 GB of free disk.</p>
-      <ul>
-        <li><strong>macOS, Windows:</strong> <a href="https://docs.docker.com/desktop/">Docker Desktop</a>.
-          On Windows choose the WSL2 backend; <code>wsl --status</code> in a terminal tells you whether WSL2 is on.</li>
-        <li><strong>Linux:</strong> <a href="https://docs.docker.com/engine/install/">Docker Engine</a> or Docker Desktop.</li>
-        <li>In Docker Desktop's <em>Settings → Resources</em>, give Docker at least 8 GB of memory.</li>
-      </ul>
-      <p class="small">Installing Docker needs administrator rights: on a managed computer, ask your IT
-        department early. Docker Desktop is free for personal use, education and small organisations;
-        employees of larger companies may need a paid subscription.</p>
-    </div>
-  </section>
+  <div class="tabs" role="tablist" aria-label="Your computer">
+    <button role="tab" id="tab-windows" aria-controls="panel-windows" data-platform="windows">Windows</button>
+    <button role="tab" id="tab-macos" aria-controls="panel-macos" data-platform="macos">macOS</button>
+    <button role="tab" id="tab-linux" aria-controls="panel-linux" data-platform="linux">Linux</button>
+  </div>
 
-  <section class="step">
-    <div class="num">2</div>
-    <div>
-      <h2>Run the launcher</h2>
-      <p id="launcher-hint">Download the launcher for your computer and run it once. It downloads the
-        environment (several GB, once), starts it, and opens JupyterLab.</p>
-      <a class="button" id="launcher" href="mritogetherthon.sh" download>Download the launcher</a>
-      <a class="button secondary" id="launcher-other" href="mritogetherthon.bat" download>Windows launcher</a>
-      <p class="small" id="launcher-run">On macOS and Linux run it in a terminal with
-        <code>sh ~/Downloads/mritogetherthon.sh</code>. On Windows double-click
-        <code>mritogetherthon.bat</code>.</p>
-      <p class="small">Your work lives in the <code>mritogetherthon</code> folder of your home folder,
-        which is your home in JupyterLab: it stays on your computer through every restart and update.</p>
-    </div>
-  </section>
+  <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" data-platform="windows">
+    <section class="step">
+      <div class="num">1</div>
+      <div>
+        <h2>Install Docker Desktop</h2>
+        <p>Windows 10 or 11 runs Docker in WSL2. Turn it on first: open <em>PowerShell</em> as
+          administrator, run this, and restart the computer.</p>
+        <div class="cmd"><code>wsl --install</code><button class="copy" type="button">Copy</button></div>
+        <p>Then download Docker Desktop, install it with the WSL2 option, and start it once.</p>
+        <a class="button" href="https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe">Docker Desktop for Windows</a>
+        <a class="button secondary" href="https://desktop.docker.com/win/main/arm64/Docker%20Desktop%20Installer.exe">Windows on Arm</a>
+        <p class="small">Most computers need the first one; the second is for Arm laptops, such as
+          those with a Snapdragon processor. Docker gets half of the computer's memory, which is enough
+          with 16 GB.</p>
+      </div>
+    </section>
+    <section class="step">
+      <div class="num">2</div>
+      <div>
+        <h2>Run the launcher</h2>
+        <p>Download it and double-click it. It downloads the environment (several GB, once), starts it
+          and opens JupyterLab.</p>
+        <a class="button" href="mritogetherthon.bat" download>Download the launcher</a>
+        <p class="small">If Windows protects you from it, choose <em>More info → Run anyway</em>.
+          Your work lives in <code>%USERPROFILE%\mritogetherthon</code>, which is your home in
+          JupyterLab.</p>
+      </div>
+    </section>
+  </div>
+
+  <div role="tabpanel" id="panel-macos" aria-labelledby="tab-macos" data-platform="macos">
+    <section class="step">
+      <div class="num">1</div>
+      <div>
+        <h2>Install Docker Desktop</h2>
+        <p>Download Docker Desktop for your Mac's processor, drag it into <em>Applications</em>, and
+          start it once.</p>
+        <a class="button" href="https://desktop.docker.com/mac/main/arm64/Docker.dmg">Apple Silicon (M1 or newer)</a>
+        <a class="button secondary" href="https://desktop.docker.com/mac/main/amd64/Docker.dmg">Intel</a>
+        <p>Or, with <a href="https://brew.sh">Homebrew</a>:</p>
+        <div class="cmd"><code>brew install --cask docker-desktop</code><button class="copy" type="button">Copy</button></div>
+        <p class="small"><em>Apple menu → About This Mac</em> names your processor. In Docker Desktop's
+          <em>Settings → Resources</em>, give Docker at least 8 GB of memory.</p>
+      </div>
+    </section>
+    <section class="step">
+      <div class="num">2</div>
+      <div>
+        <h2>Run the launcher</h2>
+        <p>In <em>Terminal</em>, run this. It downloads the launcher and runs it, which downloads the
+          environment (several GB, once), starts it and opens JupyterLab.</p>
+        <div class="cmd"><code class="launch"></code><button class="copy" type="button">Copy</button></div>
+        <p class="small">Your work lives in <code>~/mritogetherthon</code>, which is your home in
+          JupyterLab.</p>
+      </div>
+    </section>
+  </div>
+
+  <div role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" data-platform="linux">
+    <section class="step">
+      <div class="num">1</div>
+      <div>
+        <h2>Install Docker</h2>
+        <p>Install Docker Engine with your distribution's package manager:</p>
+        <div class="subtabs" role="tablist" aria-label="Package manager">
+          <button role="tab" data-manager="apt" aria-controls="manager-apt">APT</button>
+          <button role="tab" data-manager="dnf" aria-controls="manager-dnf">DNF</button>
+          <button role="tab" data-manager="zypper" aria-controls="manager-zypper">zypper</button>
+          <button role="tab" data-manager="pacman" aria-controls="manager-pacman">pacman</button>
+        </div>
+        <div role="tabpanel" id="manager-apt" data-manager="apt">
+          <p class="small">Ubuntu, Debian, Linux Mint, Pop!_OS</p>
+          <div class="cmd"><code>sudo apt-get update &amp;&amp; sudo apt-get install -y docker.io curl</code><button class="copy" type="button">Copy</button></div>
+        </div>
+        <div role="tabpanel" id="manager-dnf" data-manager="dnf">
+          <p class="small">Fedora. On RHEL, Rocky or AlmaLinux, follow
+            <a href="https://docs.docker.com/engine/install/rhel/">Docker's instructions</a> instead.</p>
+          <div class="cmd"><code>sudo dnf install -y moby-engine curl</code><button class="copy" type="button">Copy</button></div>
+        </div>
+        <div role="tabpanel" id="manager-zypper" data-manager="zypper">
+          <p class="small">openSUSE Leap and Tumbleweed</p>
+          <div class="cmd"><code>sudo zypper install -y docker curl</code><button class="copy" type="button">Copy</button></div>
+        </div>
+        <div role="tabpanel" id="manager-pacman" data-manager="pacman">
+          <p class="small">Arch Linux, Manjaro, EndeavourOS</p>
+          <div class="cmd"><code>sudo pacman -S --needed docker curl</code><button class="copy" type="button">Copy</button></div>
+        </div>
+        <p>Then start Docker, and let your user run it without <code>sudo</code>:</p>
+        <div class="cmd"><code>sudo systemctl enable --now docker &amp;&amp; sudo usermod -aG docker $USER</code><button class="copy" type="button">Copy</button></div>
+        <p class="small">Log out and in again for the second part to take effect. Docker Desktop for
+          Linux works too.</p>
+      </div>
+    </section>
+    <section class="step">
+      <div class="num">2</div>
+      <div>
+        <h2>Run the launcher</h2>
+        <p>In a terminal, run this. It downloads the launcher and runs it, which downloads the
+          environment (several GB, once), starts it and opens JupyterLab.</p>
+        <div class="cmd"><code class="launch"></code><button class="copy" type="button">Copy</button></div>
+        <p class="small">Your work lives in <code>~/mritogetherthon</code>, which is your home in
+          JupyterLab.</p>
+      </div>
+    </section>
+  </div>
+
+  <p class="small note">You need about 40 GB of free disk, and 16 GB of memory is recommended.
+    Installing Docker needs administrator rights: on a managed computer, ask your IT department early.
+    Docker Desktop is free for personal use, education and small organisations; employees of larger
+    companies may need a paid subscription.</p>
 
   <section class="step">
     <div class="num">3</div>
@@ -157,15 +274,80 @@ code {
   </section>
 </main>
 <script>
-// The launcher for the computer the page is opened on, the other on request.
-const windows = /Win/.test(navigator.platform || navigator.userAgent);
-if (windows) {
-  const main = document.getElementById("launcher");
-  const other = document.getElementById("launcher-other");
-  main.href = "mritogetherthon.bat";
-  other.href = "mritogetherthon.sh";
-  other.textContent = "macOS / Linux launcher";
+// The setup of the computer the page is opened on, or of the one its address
+// names (#windows, #macos, #linux), so that a link can point to one.
+const platforms = ["windows", "macos", "linux"];
+function detected() {
+  const name = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.userAgent;
+  if (/Win/i.test(name)) return "windows";
+  if (/Mac/i.test(name)) return "macos";
+  if (/Linux|X11|CrOS/i.test(name) && !/Android/i.test(name)) return "linux";
+  return "windows";
 }
+function choose(group, attribute, value) {
+  document.querySelectorAll(`[role=tab][data-${attribute}]`).forEach((tab) => {
+    const on = tab.dataset[attribute] === value;
+    tab.setAttribute("aria-selected", on);
+    tab.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll(`[role=tabpanel][data-${attribute}]`).forEach((panel) => {
+    panel.hidden = panel.dataset[attribute] !== value;
+  });
+}
+function tabs(attribute, values, onChoose) {
+  const all = [...document.querySelectorAll(`[role=tab][data-${attribute}]`)];
+  all.forEach((tab, index) => {
+    tab.addEventListener("click", () => onChoose(tab.dataset[attribute]));
+    tab.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      const next = all[(index + step + all.length) % all.length];
+      onChoose(next.dataset[attribute]);
+      next.focus();
+    });
+  });
+}
+function showPlatform(platform) {
+  choose("platform", "platform", platform);
+  if (location.hash !== "#" + platform) history.replaceState(null, "", "#" + platform);
+}
+tabs("platform", platforms, showPlatform);
+const fromHash = location.hash.slice(1);
+showPlatform(platforms.includes(fromHash) ? fromHash : detected());
+
+// The package manager, remembered on this browser alone.
+function showManager(manager) {
+  choose("manager", "manager", manager);
+  try { localStorage.setItem("manager", manager); } catch (error) {}
+}
+tabs("manager", ["apt", "dnf", "zypper", "pacman"], showManager);
+let manager = "apt";
+try { manager = localStorage.getItem("manager") || "apt"; } catch (error) {}
+showManager(manager);
+
+// The launcher's command, from wherever this page is served.
+const script = new URL("mritogetherthon.sh", location.href).href;
+document.querySelectorAll("code.launch").forEach((code) => {
+  code.textContent = `curl -fsSL ${script} -o ~/mritogetherthon.sh && sh ~/mritogetherthon.sh`;
+});
+
+// Copy buttons, which say so when the command is on the clipboard.
+document.querySelectorAll("button.copy").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const text = button.previousElementSibling.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = "Copied";
+    } catch (error) {
+      const range = document.createRange();
+      range.selectNodeContents(button.previousElementSibling);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      button.textContent = "Press Ctrl+C";
+    }
+    setTimeout(() => { button.textContent = "Copy"; }, 2000);
+  });
+});
 
 // Whether JupyterLab answers on this computer. The answer is opaque to the
 // page, which only learns that something listens on the launcher's port.
