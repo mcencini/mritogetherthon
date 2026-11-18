@@ -23,8 +23,10 @@ RUN apt-get update \
       procps tini unzip vim-tiny \
  && rm -rf /var/lib/apt/lists/*
 
-# torch's CPU build: no session needs a graphics card.
-RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+# torch's CPU build: no session needs a graphics card. torchvision and
+# torchaudio are declared by TADRED, so they come from the same index, at the
+# versions that match torch, rather than being pulled in later from PyPI.
+RUN pip install --no-cache-dir torch==2.15.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 COPY docker/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
