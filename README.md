@@ -52,7 +52,8 @@ paid subscription.
 
 From then on the hub page's **Open JupyterLab** button starts the environment,
 updates it when a newer one is published, and opens JupyterLab. Running the
-launcher again does the same.
+launcher again updates the environment when it is outdated; when it is up to
+date and running, the launcher says so and exits.
 
 Your work lives in the `mritogetherthon` folder of your home folder, which is
 your home in JupyterLab: it stays on your computer through every restart and

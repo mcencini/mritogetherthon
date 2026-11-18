@@ -64,6 +64,7 @@ ENTRY
 }
 
 mkdir -p "$HOME_DIR" "$WORK"
+LINK=$1
 case $1 in
 mritogetherthon:*)
     exec >"$HOME_DIR/launcher.log" 2>&1
@@ -79,6 +80,7 @@ if [ ! -s "$HOME_DIR/token" ]; then
     od -An -N16 -tx1 /dev/urandom | tr -d ' \n' > "$HOME_DIR/token"
 fi
 TOKEN=$(cat "$HOME_DIR/token")
+URL_PLAIN="http://127.0.0.1:$PORT/lab?token=$TOKEN"
 
 before=$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null)
 if [ -z "$before" ]; then
@@ -107,6 +109,12 @@ fi
 running=$(docker inspect --format '{{.State.Running}} {{.Image}}' "$NAME" 2>/dev/null)
 if [ "$running" = "true $after" ]; then
     echo "The environment is already running."
+    # Run by hand, with nothing to install or update, the launcher has nothing
+    # left to do: the Open JupyterLab button opens it, as does this address.
+    if [ -z "$LINK" ] && [ "$before" = "$after" ]; then
+        echo "Nothing to do. Open JupyterLab from the hub page's button, or at $URL_PLAIN"
+        exit 0
+    fi
 else
     digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null)
     # Files in your folder belong to you: the container runs as your own user,

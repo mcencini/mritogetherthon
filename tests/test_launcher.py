@@ -140,7 +140,20 @@ def test_a_container_running_the_newest_image_keeps_running(tmp_path):
     assert done.returncode == 0, _output(done)
     assert "is up to date." in done.stdout
     assert "already running" in done.stdout
+    assert "Nothing to do" in done.stdout
+    assert "JupyterLab: http" not in done.stdout
     assert not any(call[0] in ("rm", "run") for call in calls)
+
+
+@needs_shell
+def test_an_open_link_opens_a_running_up_to_date_environment(tmp_path):
+    done, calls, home, _ = _run(tmp_path, "sha256:new", "sha256:new", container="sha256:new",
+                                link="mritogetherthon:open")
+
+    assert done.returncode == 0, _output(done)
+    assert not any(call[0] in ("rm", "run") for call in calls)
+    if os.name != "nt":
+        assert "JupyterLab: http://127.0.0.1:8899/lab?token=" in (home / "launcher.log").read_text()
 
 
 @needs_shell
