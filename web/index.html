@@ -269,8 +269,10 @@ details > :first-child ~ * { margin-top: 10px; }
         </div>
         <p>Then start Docker, and let your user run it without <code>sudo</code>:</p>
         <div class="cmd"><code>sudo systemctl enable --now docker &amp;&amp; sudo usermod -aG docker $USER</code><button class="copy" type="button">Copy</button></div>
-        <p class="small">Log out and in again for the second part to take effect. Docker Desktop for
-          Linux works too.</p>
+        <p class="small">The second part takes effect only in new sessions. Logging out and in again
+          is often not enough: <strong>restarting the computer always works</strong>. Without a restart,
+          <code>newgrp docker</code> makes the current terminal use it. If <code>docker version</code>
+          says <em>permission denied</em>, this is why. Docker Desktop for Linux works too.</p>
         <p class="small"><strong>Docker is ready</strong> when <code>docker version</code> shows a
           <em>Server</em> section without an error. Then go to step 2.</p>
         </details>

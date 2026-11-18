@@ -23,8 +23,18 @@ if ! command -v docker >/dev/null 2>&1; then
     echo "Docker is not installed: install it from https://docs.docker.com/get-started/get-docker/ and run this again."
     exit 1
 fi
-if ! docker info >/dev/null 2>&1; then
-    echo "Docker is installed but not running: start Docker Desktop, or the Docker service, and run this again."
+if ! info=$(docker info 2>&1); then
+    case $info in
+    *"permission denied"*)
+        echo "Docker is running, but your user may not use it yet. After adding yourself to the docker group,"
+        echo "the change reaches only new sessions: log out and in again (a reboot always works), or run"
+        echo "  newgrp docker"
+        echo "in this terminal, and run this again."
+        ;;
+    *)
+        echo "Docker is installed but not running: start Docker Desktop, or the Docker service, and run this again."
+        ;;
+    esac
     exit 1
 fi
 
