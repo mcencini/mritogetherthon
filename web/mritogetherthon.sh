@@ -138,5 +138,8 @@ fi
 echo "JupyterLab: $URL"
 if [ -n "$MRITOGETHERTHON_NO_BROWSER" ]; then :
 elif [ "$(uname)" = Darwin ]; then open "$URL"
+elif command -v wslview >/dev/null 2>&1; then wslview "$URL" >/dev/null 2>&1
+elif grep -qi microsoft /proc/version 2>/dev/null && command -v explorer.exe >/dev/null 2>&1; then
+    explorer.exe "$URL" >/dev/null 2>&1
 elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1
 fi

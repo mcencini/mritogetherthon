@@ -79,6 +79,7 @@ WORKDIR /home/mri
 RUN nbstripout --install --system
 
 COPY --chmod=755 docker/check-setup /usr/local/bin/check-setup
+COPY docker/notebooks/ /usr/local/share/mritogetherthon/notebooks/
 COPY docker/START_HERE.md /usr/local/share/mritogetherthon/START_HERE.md
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/jupyter_server_config.py /etc/jupyter/jupyter_server_config.py

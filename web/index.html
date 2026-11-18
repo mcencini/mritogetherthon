@@ -122,6 +122,10 @@ code {
   background: transparent; color: var(--accent);
 }
 .note { margin: 0 0 16px; }
+details { margin: 8px 0 0; }
+summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details > :first-child ~ * { margin-top: 10px; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -136,7 +140,7 @@ code {
     <h2>Technical requirements</h2>
     <ul>
       <li><strong>A computer</strong> running macOS (Intel or Apple Silicon), Linux, or Windows 10/11 with WSL2</li>
-      <li><strong>Docker</strong>: Docker Desktop on macOS and Windows, Docker Engine or Docker Desktop on Linux</li>
+      <li><strong>Docker</strong>, already installed and running, or installed in step 1: Docker Desktop on macOS and Windows, Docker Engine or Docker Desktop on Linux</li>
       <li><strong>16 GB of memory</strong> recommended, at least 8 GB of it for Docker, and <strong>about 40 GB of free disk</strong></li>
       <li><strong>A <a href="https://github.com/signup">GitHub account</a></strong>, to ask for help and to work with your team</li>
     </ul>
@@ -152,10 +156,17 @@ code {
   </div>
 
   <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" data-platform="windows">
+    <p class="note small"><strong>Do you already work in a WSL2 Linux terminal?</strong> Then you can
+      follow the <a href="#linux" data-go="linux">Linux</a> instructions there instead, with Docker
+      Desktop's WSL integration or Docker Engine installed in WSL.</p>
     <section class="step">
       <div class="num">1</div>
       <div>
-        <h2>Install Docker Desktop</h2>
+        <h2>Docker</h2>
+        <p>The environment runs in Docker. <strong>If Docker is already installed and running, skip
+          to step 2</strong>: <code>docker version</code> in a terminal tells you.</p>
+        <details>
+        <summary>Install Docker Desktop</summary>
         <p>Windows 10 or 11 runs Docker in WSL2. Turn it on first: open <em>PowerShell</em> as
           administrator, run this, and restart the computer.</p>
         <div class="cmd"><code>wsl --install</code><button class="copy" type="button">Copy</button></div>
@@ -165,6 +176,7 @@ code {
         <p class="small">Most computers need the first one; the second is for Arm laptops, such as
           those with a Snapdragon processor. Docker gets half of the computer's memory, which is enough
           with 16 GB.</p>
+        </details>
       </div>
     </section>
     <section class="step">
@@ -185,15 +197,24 @@ code {
     <section class="step">
       <div class="num">1</div>
       <div>
-        <h2>Install Docker Desktop</h2>
+        <h2>Docker</h2>
+        <p>The environment runs in Docker. <strong>If Docker is already installed and running, skip
+          to step 2</strong>: <code>docker version</code> in <em>Terminal</em> tells you. Do not
+          install it again over a working one.</p>
+        <details>
+        <summary>Install Docker Desktop</summary>
         <p>Download Docker Desktop for your Mac's processor, drag it into <em>Applications</em>, and
-          start it once.</p>
+          start it once. Recent versions of Docker Desktop need a recent macOS: if the installer
+          refuses your Mac, see
+          <a href="https://docs.docker.com/desktop/setup/install/mac-install/">Docker's system requirements</a>
+          and ask in the <a href="https://github.com/mcencini/mritogetherthon/discussions">Discussions</a>.</p>
         <a class="button" href="https://desktop.docker.com/mac/main/arm64/Docker.dmg">Apple Silicon (M1 or newer)</a>
         <a class="button secondary" href="https://desktop.docker.com/mac/main/amd64/Docker.dmg">Intel</a>
         <p>Or, with <a href="https://brew.sh">Homebrew</a>:</p>
         <div class="cmd"><code>brew install --cask docker-desktop</code><button class="copy" type="button">Copy</button></div>
         <p class="small"><em>Apple menu → About This Mac</em> names your processor. In Docker Desktop's
           <em>Settings → Resources</em>, give Docker at least 8 GB of memory.</p>
+        </details>
       </div>
     </section>
     <section class="step">
@@ -213,7 +234,11 @@ code {
     <section class="step">
       <div class="num">1</div>
       <div>
-        <h2>Install Docker</h2>
+        <h2>Docker</h2>
+        <p>The environment runs in Docker. <strong>If Docker is already installed and running, skip
+          to step 2</strong>: <code>docker version</code> in a terminal tells you.</p>
+        <details>
+        <summary>Install Docker Engine</summary>
         <p>Install Docker Engine with your distribution's package manager:</p>
         <div class="subtabs" role="tablist" aria-label="Package manager">
           <button role="tab" data-manager="apt" aria-controls="manager-apt">APT</button>
@@ -242,6 +267,7 @@ code {
         <div class="cmd"><code>sudo systemctl enable --now docker &amp;&amp; sudo usermod -aG docker $USER</code><button class="copy" type="button">Copy</button></div>
         <p class="small">Log out and in again for the second part to take effect. Docker Desktop for
           Linux works too.</p>
+        </details>
       </div>
     </section>
     <section class="step">
@@ -320,6 +346,9 @@ function showPlatform(platform) {
   if (location.hash !== "#" + platform) history.replaceState(null, "", "#" + platform);
 }
 tabs("platform", platforms, showPlatform);
+document.querySelectorAll("a[data-go]").forEach((link) => {
+  link.addEventListener("click", (event) => { event.preventDefault(); showPlatform(link.dataset.go); });
+});
 const fromHash = location.hash.slice(1);
 showPlatform(platforms.includes(fromHash) ? fromHash : detected());
 
