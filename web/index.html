@@ -176,6 +176,8 @@ details > :first-child ~ * { margin-top: 10px; }
         <p class="small">Most computers need the first one; the second is for Arm laptops, such as
           those with a Snapdragon processor. Docker gets half of the computer's memory, which is enough
           with 16 GB.</p>
+        <p class="small"><strong>Docker is ready</strong> when Docker Desktop is open and says it is running
+          (a green icon at the bottom left, or the whale in the taskbar). Accept its terms and skip its sign-in if asked: you do not need an account. Then go to step 2.</p>
         </details>
       </div>
     </section>
@@ -214,6 +216,8 @@ details > :first-child ~ * { margin-top: 10px; }
         <div class="cmd"><code>brew install --cask docker-desktop</code><button class="copy" type="button">Copy</button></div>
         <p class="small"><em>Apple menu → About This Mac</em> names your processor. In Docker Desktop's
           <em>Settings → Resources</em>, give Docker at least 8 GB of memory.</p>
+        <p class="small"><strong>Docker is ready</strong> when Docker Desktop is open and says it is running
+          (a green icon at the bottom left, or the whale in the menu bar). Accept its terms and skip its sign-in if asked: you do not need an account. Then go to step 2.</p>
         </details>
       </div>
     </section>
@@ -267,6 +271,8 @@ details > :first-child ~ * { margin-top: 10px; }
         <div class="cmd"><code>sudo systemctl enable --now docker &amp;&amp; sudo usermod -aG docker $USER</code><button class="copy" type="button">Copy</button></div>
         <p class="small">Log out and in again for the second part to take effect. Docker Desktop for
           Linux works too.</p>
+        <p class="small"><strong>Docker is ready</strong> when <code>docker version</code> shows a
+          <em>Server</em> section without an error. Then go to step 2.</p>
         </details>
       </div>
     </section>
@@ -286,14 +292,18 @@ details > :first-child ~ * { margin-top: 10px; }
   <section class="step">
     <div class="num">3</div>
     <div>
-      <h2>Open JupyterLab</h2>
+      <h2>Use JupyterLab</h2>
+      <p>When the launcher has finished, <strong>JupyterLab opens by itself in your browser</strong>
+        (the first time it downloads the environment, which takes a while: wait for it). Leave the
+        launcher's window open until then. This page's button opens JupyterLab again later.</p>
       <div class="status" id="status" role="status"><span class="dot"></span><span id="status-text">Looking for the environment on this computer…</span></div>
       <a class="button" href="mritogetherthon:open">Open JupyterLab</a>
       <p class="small">The button starts the environment, updates it when a newer one is published, and
         opens JupyterLab. Your browser asks once whether this page may open the launcher. If the
         button does nothing, run the launcher again.</p>
-      <p class="small">Then open a terminal in JupyterLab and run <code>check-setup</code>.
-        Everything should be ✅.</p>
+      <p><strong>Last check:</strong> in JupyterLab, choose <em>File → New → Terminal</em>, type
+        <code>check-setup</code> and press Enter. Every line should be ✅; if not, open a
+        <em>Setup problem</em> issue below with its output.</p>
     </div>
   </section>
 
