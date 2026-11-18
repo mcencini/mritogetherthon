@@ -101,7 +101,8 @@ def check_computer():
 
 def check_python():
     for module in ["numpy", "scipy", "matplotlib", "h5py", "ismrmrd", "nibabel",
-                   "pydicom", "pypulseq", "sigpy", "torch", "skimage", "dipy"]:
+                   "pydicom", "pypulseq", "sigpy", "torch", "skimage", "dipy",
+                   "hydra", "omegaconf", "jax", "edmri", "tadred"]:
         try:
             version = getattr(importlib.import_module(module), "__version__", "")
             report("ok", f"Python: {module}", version)

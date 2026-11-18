@@ -15,7 +15,9 @@ there, through every restart and update.
    gh auth setup-git
    ```
 
-3. **Join a team** and clone its repository, as
+3. **Find the session notebooks** in the `notebooks` folder here, for example
+   `placenta_b_optimisation.ipynb`, the protocol-optimisation hack of day 4.
+4. **Join a team** and clone its repository, as
    [Working as a team](https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md)
    explains.
 

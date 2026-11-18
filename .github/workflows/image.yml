@@ -10,6 +10,7 @@ on:
     paths:
       - docker/**
       - tests/smoke.py
+      - tests/notebook.py
       - .dockerignore
       - .github/workflows/image.yml
   workflow_dispatch:
@@ -53,6 +54,8 @@ jobs:
         run: docker exec mritogetherthon check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
+      - name: Run the protocol-optimisation notebook
+        run: docker exec mritogetherthon python /tests/notebook.py
       - name: Keep the work in the attendee's folder
         run: test -f work/smoke/python.ipynb && test -f work/smoke/julia.ipynb
       - name: Logs

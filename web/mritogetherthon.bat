@@ -1,7 +1,7 @@
 @echo off
 rem Installs, updates and starts the MRI TogetherThon's environment in Docker,
 rem and opens JupyterLab in the browser. Double-click it; run it again to take
-rem a newer image. Your work lives in %USERPROFILE%\mritogetherthon
+rem a newer image, or to be told that the one it has is up to date. Your work lives in %USERPROFILE%\mritogetherthon
 rem (MRITOGETHERTHON_WORK names another folder), which is the home folder you
 rem see in JupyterLab, so that it outlives the container and every update.
 rem Run so, it also copies itself to %USERPROFILE%\.mritogetherthon and
@@ -68,6 +68,13 @@ set "RUNNING="
 for /f "delims=" %%i in ('docker inspect --format "{{.State.Running}} {{.Image}}" %NAME% 2^>nul') do set "RUNNING=%%i"
 if "%RUNNING%"=="true %AFTER%" (
     echo The environment is already running.
+    rem Run by hand, with nothing to install or update, there is nothing left to
+    rem do: the Open JupyterLab button opens it, as does this address.
+    if "%LINK%"=="" if "%BEFORE%"=="%AFTER%" (
+        echo Nothing to do. Open JupyterLab from the hub page's button, or at http://127.0.0.1:%PORT%/lab?token=%TOKEN%
+        pause
+        exit /b 0
+    )
     goto :wait
 )
 set "DIGEST="

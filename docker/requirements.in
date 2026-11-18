@@ -29,3 +29,9 @@ sigpy
 # Day 4: image quality and diffusion
 scikit-image
 dipy
+
+# Day 4: protocol optimisation (ED_MRI and TADRED, installed by the Dockerfile)
+hydra-core
+omegaconf
+# TADRED imports jax; it is kept for the attendees' own use too.
+jax

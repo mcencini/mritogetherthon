@@ -23,10 +23,24 @@ RUN apt-get update \
       procps tini unzip vim-tiny \
  && rm -rf /var/lib/apt/lists/*
 
-# torch's CPU build: no session needs a graphics card.
-RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+# torch's CPU build: no session needs a graphics card. torchvision and
+# torchaudio are declared by TADRED, so they come from the same index, at the
+# versions that match torch, rather than being pulled in later from PyPI.
+RUN pip install --no-cache-dir torch==2.15.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 COPY docker/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+
+# Day 4's protocol optimisation: ED_MRI and TADRED, at fixed commits, installed
+# in place (-e) so that ED_MRI's results folder, which sits beside its code,
+# can be written by the attendee.
+ARG EDMRI_REF=070c387d673618c66d76f02b42950afbb9acf565
+ARG TADRED_REF=781ab5eb9301d2a01dd1065b9d9de7d3a8c9a003
+RUN git clone https://github.com/sbb-gh/ED_MRI /opt/ED_MRI \
+ && git -C /opt/ED_MRI checkout "$EDMRI_REF" \
+ && git clone https://github.com/PaddySlator/tadred.git /opt/tadred \
+ && git -C /opt/tadred checkout "$TADRED_REF" \
+ && pip install --no-cache-dir -e /opt/ED_MRI -e /opt/tadred \
+ && mkdir -p /opt/ED_MRI/results && chmod -R a+rwX /opt/ED_MRI/results
 
 # Julia and KomaMRI, at the versions of docker/julia/Manifest.toml, in a depot
 # of their own that is stacked behind the attendee's, so that a package they
@@ -65,6 +79,7 @@ WORKDIR /home/mri
 RUN nbstripout --install --system
 
 COPY --chmod=755 docker/check-setup /usr/local/bin/check-setup
+COPY docker/notebooks/ /usr/local/share/mritogetherthon/notebooks/
 COPY docker/START_HERE.md /usr/local/share/mritogetherthon/START_HERE.md
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/jupyter_server_config.py /etc/jupyter/jupyter_server_config.py

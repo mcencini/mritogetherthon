@@ -23,8 +23,18 @@ if ! command -v docker >/dev/null 2>&1; then
     echo "Docker is not installed: install it from https://docs.docker.com/get-started/get-docker/ and run this again."
     exit 1
 fi
-if ! docker info >/dev/null 2>&1; then
-    echo "Docker is installed but not running: start Docker Desktop, or the Docker service, and run this again."
+if ! info=$(docker info 2>&1); then
+    case $info in
+    *"permission denied"*)
+        echo "Docker is running, but your user may not use it yet. After adding yourself to the docker group,"
+        echo "the change reaches only new sessions: log out and in again (a reboot always works), or run"
+        echo "  newgrp docker"
+        echo "in this terminal, and run this again."
+        ;;
+    *)
+        echo "Docker is installed but not running: start Docker Desktop, or the Docker service, and run this again."
+        ;;
+    esac
     exit 1
 fi
 
@@ -64,6 +74,7 @@ ENTRY
 }
 
 mkdir -p "$HOME_DIR" "$WORK"
+LINK=$1
 case $1 in
 mritogetherthon:*)
     exec >"$HOME_DIR/launcher.log" 2>&1
@@ -79,6 +90,7 @@ if [ ! -s "$HOME_DIR/token" ]; then
     od -An -N16 -tx1 /dev/urandom | tr -d ' \n' > "$HOME_DIR/token"
 fi
 TOKEN=$(cat "$HOME_DIR/token")
+URL_PLAIN="http://127.0.0.1:$PORT/lab?token=$TOKEN"
 
 before=$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null)
 if [ -z "$before" ]; then
@@ -107,6 +119,12 @@ fi
 running=$(docker inspect --format '{{.State.Running}} {{.Image}}' "$NAME" 2>/dev/null)
 if [ "$running" = "true $after" ]; then
     echo "The environment is already running."
+    # Run by hand, with nothing to install or update, the launcher has nothing
+    # left to do: the Open JupyterLab button opens it, as does this address.
+    if [ -z "$LINK" ] && [ "$before" = "$after" ]; then
+        echo "Nothing to do. Open JupyterLab from the hub page's button, or at $URL_PLAIN"
+        exit 0
+    fi
 else
     digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null)
     # Files in your folder belong to you: the container runs as your own user,
@@ -138,5 +156,8 @@ fi
 echo "JupyterLab: $URL"
 if [ -n "$MRITOGETHERTHON_NO_BROWSER" ]; then :
 elif [ "$(uname)" = Darwin ]; then open "$URL"
+elif command -v wslview >/dev/null 2>&1; then wslview "$URL" >/dev/null 2>&1
+elif grep -qi microsoft /proc/version 2>/dev/null && command -v explorer.exe >/dev/null 2>&1; then
+    explorer.exe "$URL" >/dev/null 2>&1
 elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1
 fi

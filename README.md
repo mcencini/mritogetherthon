@@ -32,9 +32,11 @@ paid subscription.
 
 ## Set up
 
-1. Install Docker and start it. The [hub page](https://mcencini.github.io/mritogetherthon/)
+1. Install Docker and start it, unless it is already installed and running
+   (`docker version` tells you; do not install it again over a working one). The [hub page](https://mcencini.github.io/mritogetherthon/)
    has the installers for Windows and macOS, and the commands for Linux's
-   package managers (APT, DNF, zypper, pacman).
+   package managers (APT, DNF, zypper, pacman). On Windows, if you already work
+   in a WSL2 Linux terminal, you can follow the Linux instructions there.
 2. Run the launcher once. It downloads the environment (several GB, once),
    starts it and opens JupyterLab.
    - **Windows:** download
@@ -50,7 +52,8 @@ paid subscription.
 
 From then on the hub page's **Open JupyterLab** button starts the environment,
 updates it when a newer one is published, and opens JupyterLab. Running the
-launcher again does the same.
+launcher again updates the environment when it is outdated; when it is up to
+date and running, the launcher says so and exits.
 
 Your work lives in the `mritogetherthon` folder of your home folder, which is
 your home in JupyterLab: it stays on your computer through every restart and

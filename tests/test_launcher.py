@@ -29,6 +29,8 @@ def done(code=0, out=""):
     sys.stdout.write(out)
     sys.exit(code)
 if not state["daemon"]:
+    if state.get("denied"):
+        sys.stderr.write("permission denied while trying to connect to the Docker daemon socket\n")
     done(1)
 if argv[0] == "info":
     done(0, "[name=seccomp,profile=builtin name=rootless]\n" if state.get("rootless") else "[name=seccomp,profile=builtin]\n")
@@ -59,10 +61,10 @@ done(1)
 FAKE_CURL = "import sys; sys.exit(0)\n"
 
 
-def _run(tmp_path, local, published, daemon=True, container=None, rootless=False, link=None):
+def _run(tmp_path, local, published, daemon=True, container=None, rootless=False, link=None, denied=False):
     state = tmp_path / "docker.json"
     state.write_text(json.dumps({"daemon": daemon, "local": local, "published": published,
-                                 "container": container, "rootless": rootless, "calls": []}))
+                                 "container": container, "rootless": rootless, "denied": denied, "calls": []}))
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
     (bin_dir / "docker.py").write_text(FAKE_DOCKER)
@@ -140,7 +142,20 @@ def test_a_container_running_the_newest_image_keeps_running(tmp_path):
     assert done.returncode == 0, _output(done)
     assert "is up to date." in done.stdout
     assert "already running" in done.stdout
+    assert "Nothing to do" in done.stdout
+    assert "JupyterLab: http" not in done.stdout
     assert not any(call[0] in ("rm", "run") for call in calls)
+
+
+@needs_shell
+def test_an_open_link_opens_a_running_up_to_date_environment(tmp_path):
+    done, calls, home, _ = _run(tmp_path, "sha256:new", "sha256:new", container="sha256:new",
+                                link="mritogetherthon:open")
+
+    assert done.returncode == 0, _output(done)
+    assert not any(call[0] in ("rm", "run") for call in calls)
+    if os.name != "nt":
+        assert "JupyterLab: http://127.0.0.1:8899/lab?token=" in (home / "launcher.log").read_text()
 
 
 @needs_shell
@@ -150,6 +165,15 @@ def test_an_installed_image_starts_when_the_registry_does_not_answer(tmp_path):
     assert done.returncode == 0, _output(done)
     assert "could not be checked" in done.stdout
     assert calls[-1][0] == "run"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the shell launcher's users")
+def test_a_user_outside_the_docker_group_is_told_to_start_a_new_session(tmp_path):
+    done, calls, _, _ = _run(tmp_path, "sha256:new", "sha256:new", daemon=False, denied=True)
+
+    assert done.returncode != 0
+    assert "newgrp docker" in _output(done)
+    assert not any(call[0] == "pull" for call in calls)
 
 
 @needs_shell
