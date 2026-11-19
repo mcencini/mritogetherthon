@@ -99,9 +99,9 @@ asked for in Discussions and added to the environment, for everyone.
 
 | Path | What it is |
 |---|---|
-| [`docker/`](docker) | The image: `Dockerfile`, the pinned Python (`requirements.in` → `requirements.txt`) and Julia (`julia/Project.toml`, `julia/Manifest.toml`) packages, `check-setup`, and JupyterLab's configuration |
+| [`docker/`](docker) | The image: `Dockerfile`, the session notebooks (`notebooks/`), the pinned Python (`requirements.in` → `requirements.txt`) and Julia (`julia/Project.toml`, `julia/Manifest.toml`) packages, `check-setup`, and JupyterLab's configuration |
 | [`web/`](web) | The hub page and its launchers, served by GitHub Pages |
-| [`tests/`](tests) | The launchers against a stand-in for Docker, and a notebook in each kernel inside the image |
+| [`tests/`](tests) | The launchers against a stand-in for Docker, a notebook in each kernel inside the image, and the solved copy of the session notebook in `docker/notebooks` |
 | [`.github/`](.github) | The workflows, and the issue and discussion templates |
 
 - **Image:** every push to `main` builds the image on amd64 and arm64 runners,
