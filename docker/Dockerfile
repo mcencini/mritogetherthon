@@ -42,6 +42,36 @@ RUN git clone https://github.com/sbb-gh/ED_MRI /opt/ED_MRI \
  && pip install --no-cache-dir -e /opt/ED_MRI -e /opt/tadred \
  && mkdir -p /opt/ED_MRI/results && chmod -R a+rwX /opt/ED_MRI/results
 
+# Day 3's motion correction: the ISMRM MoCo workshop's notebooks and everything
+# they install on Colab, in an environment of their own, "Python 3.10 (MoCo)",
+# because MERLIN's TensorFlow layers and pysap need an older TensorFlow than
+# Python 3.12 can run (see docker/moco/requirements.in). BART's and ESPIRiT's
+# Python modules are put in it, and the notebooks are prepared by dropping their
+# installation cells, so that none of them installs anything.
+ARG MOCO_REF=efcd153b1236c1c15bf16c25c3f85d3d465a97df
+ARG BART_REF=dedabac4e0ecc1b1b94830fa8bd4b32cec36ca9a
+ARG ESPIRIT_REF=672a840ff88117e09dc9803e0d9c8c5a7f1c42a9
+COPY docker/moco/requirements.txt /tmp/moco-requirements.txt
+COPY docker/moco/prepare.py /tmp/prepare-moco.py
+RUN pip install --no-cache-dir uv \
+ && UV_PYTHON_INSTALL_DIR=/opt/uv-python uv venv --python 3.10 /opt/moco \
+ && chmod -R a+rX /opt/uv-python \
+ && uv pip install --python /opt/moco/bin/python --no-cache -r /tmp/moco-requirements.txt \
+ && uv pip install --python /opt/moco/bin/python --no-cache --no-deps merlinpy-mri==0.4.0 merlintf-mri==0.4.1 \
+ && MOCO_SITE=$(/opt/moco/bin/python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
+ && git clone --filter=blob:none https://github.com/mrirecon/bart /tmp/bart \
+ && git -C /tmp/bart checkout "$BART_REF" \
+ && cp /tmp/bart/python/cfl.py /tmp/bart/python/bart.py "$MOCO_SITE/" \
+ && git clone --filter=blob:none https://github.com/mikgroup/espirit-python /tmp/espirit \
+ && git -C /tmp/espirit checkout "$ESPIRIT_REF" \
+ && cp /tmp/espirit/espirit.py "$MOCO_SITE/" \
+ && /opt/moco/bin/python -m ipykernel install --prefix /usr/local --name moco --display-name "Python 3.10 (MoCo)" \
+ && git clone --filter=blob:none https://github.com/lab-midas/ismrm-moco-workshop /tmp/workshop \
+ && git -C /tmp/workshop checkout "$MOCO_REF" \
+ && python /tmp/prepare-moco.py /tmp/workshop /usr/local/share/mritogetherthon/notebooks/ismrm-moco-workshop \
+ && rm -rf /tmp/bart /tmp/espirit /tmp/workshop /tmp/moco-requirements.txt /tmp/prepare-moco.py \
+ && chmod -R a+rX /opt/moco
+
 # Julia and KomaMRI, at the versions of docker/julia/Manifest.toml, in a depot
 # of their own that is stacked behind the attendee's, so that a package they
 # add lands in /home/mri/.julia and the image's precompiled ones still load.

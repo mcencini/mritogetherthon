@@ -1,0 +1,34 @@
+# The Python 3.10 environment of Day 3's motion-correction notebooks (the ISMRM
+# MoCo workshop), pinned in requirements.txt with
+#   uv pip compile --python-version 3.10 requirements.in -o requirements.txt
+# It is an environment of its own because the workshop's libraries need an older
+# TensorFlow than the main environment's Python can run: MERLIN's TensorFlow
+# layers need tensorflow-addons (TensorFlow <= 2.15, Python <= 3.11) and pysap-mri
+# needs python-pysap and an older mri-nufft.
+# merlinpy-mri and merlintf-mri are installed apart, without their dependencies,
+# because merlintf-mri requires the discontinued tensorflow-gpu package.
+
+tensorflow-cpu==2.12.1
+tensorflow-addons==0.20.0
+voxelmorph
+neurite
+simpleitk
+medutils-mri
+pysap-mri==0.5.0
+mri-nufft==0.6.1
+python-pysap
+scikit-image
+scikit-learn
+scipy
+matplotlib
+ipywidgets
+# TensorFlow 2.12 pins typing-extensions below what IPython 9 needs
+ipython==8.12.3
+ipykernel<7
+pyyaml
+xmltodict
+pandas
+tqdm
+joblib
+pkgconfig
+h5py
