@@ -92,8 +92,6 @@ fastjsonschema==2.22.2
     # via nbformat
 filelock==4.2.12
     # via torch
-finufft==2.5.1
-    # via -r requirements.in
 fonttools==4.68.0
     # via matplotlib
 formulaic==1.2.2
@@ -336,7 +334,6 @@ numpy==2.5.4
     #   -r requirements.in
     #   contourpy
     #   dipy
-    #   finufft
     #   formulaic
     #   h5py
     #   imageio
@@ -385,7 +382,6 @@ orderly-set==5.5.0
 packaging==26.3
     # via
     #   dipy
-    #   finufft
     #   hydra-core
     #   ipykernel
     #   jupyter-events
