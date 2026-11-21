@@ -1,6 +1,7 @@
 # The Python of the TogetherThon's image, pinned in requirements.txt with
 #   uv pip compile --universal --python-version 3.12 requirements.in -o requirements.txt
-# torch is installed apart from these, from PyTorch's CPU index.
+# torch is installed apart from these, from PyTorch's CPU index, and left out of the
+# lock file, with its CUDA libraries and triton, by uv's --no-emit-package.
 
 # Notebooks and the shell
 jupyterlab
@@ -35,3 +36,26 @@ hydra-core
 omegaconf
 # TADRED imports jax; it is kept for the attendees' own use too.
 jax
+
+# Day 3: motion correction, with the tools of the ISMRM MoCo workshop
+# (https://github.com/lab-midas/ismrm-moco-workshop) that run on this image's
+# Python and torch. merlinpy-mri and merlinth-mri, whose pinned dependencies
+# would break the resolution, and finufft, which has no wheel for Linux on Arm,
+# are installed by the Dockerfile after these.
+voxelmorph
+neurite
+simpleitk
+medutils-mri
+mri-nufft
+pytorch-lightning
+torchmetrics
+optuna
+tensorboard
+runstats
+pingouin
+opencv-python-headless
+imageio
+scikit-learn
+xmltodict
+joblib
+pkgconfig

@@ -30,6 +30,32 @@ RUN pip install --no-cache-dir torch==2.15.0 torchvision torchaudio --index-url 
 COPY docker/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
+# finufft, the NUFFT of mri-nufft, has no prebuilt wheel for Linux on Arm, where
+# Apple Silicon's Docker runs: it is compiled there, with tools removed after.
+RUN if [ "$TARGETARCH" = arm64 ]; then \
+      apt-get update \
+   && apt-get install -y --no-install-recommends build-essential cmake libfftw3-dev \
+   && pip install --no-cache-dir finufft==2.5.1 \
+   && apt-get purge -y --auto-remove build-essential cmake \
+   && rm -rf /var/lib/apt/lists/*; \
+    else pip install --no-cache-dir finufft==2.5.1; fi
+
+# Day 3's motion correction, with the tools of the ISMRM MoCo workshop that run
+# on this Python and torch: MERLIN's torch layers, installed without their
+# dependencies, which pin documentation tools, and BART's and ESPIRiT's Python
+# modules, which the workshop's code imports.
+ARG BART_REF=672a840ff88117e09dc9803e0d9c8c5a7f1c42a9
+ARG ESPIRIT_REF=dedabac4e0ecc1b1b94830fa8bd4b32cec36ca9a
+RUN pip install --no-cache-dir --no-deps merlinpy-mri==0.4.0 merlinth-mri==0.4.2 \
+ && SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
+ && git clone --filter=blob:none https://github.com/mrirecon/bart /tmp/bart \
+ && git -C /tmp/bart checkout "$BART_REF" \
+ && cp /tmp/bart/python/cfl.py /tmp/bart/python/bart.py "$SITE/" \
+ && git clone --filter=blob:none https://github.com/mikgroup/espirit-python /tmp/espirit \
+ && git -C /tmp/espirit checkout "$ESPIRIT_REF" \
+ && cp /tmp/espirit/espirit.py "$SITE/" \
+ && rm -rf /tmp/bart /tmp/espirit
+
 # Day 4's protocol optimisation: ED_MRI and TADRED, at fixed commits, installed
 # in place (-e) so that ED_MRI's results folder, which sits beside its code,
 # can be written by the attendee.
