@@ -309,6 +309,12 @@ RUN apt-get update \
       libqt5svg5 libqt5widgets5t64 libglu1-mesa libgsl28 libqhull-r8.0 libqhull8.0 libexpat1 tcsh \
  && rm -rf /var/lib/apt/lists/*
 
+# MRtrix3 3.0.4's Python commands import imp and distutils, which Python 3.12
+# removed: both are replaced by their standard equivalents.
+COPY docker/qsi/mrtrix3-python312.py /tmp/
+RUN python /tmp/mrtrix3-python312.py /usr/lib/mrtrix3 && rm /tmp/mrtrix3-python312.py \
+ && for c in dwibiascorrect dwi2response dwifslpreproc 5ttgen; do /usr/lib/mrtrix3/bin/$c -help >/dev/null || exit 1; done
+
 COPY --from=tools /opt/fsl /opt/fsl
 COPY --from=tools /opt/ants /opt/ants
 COPY --from=tools /opt/mrtrix3-dev /opt/mrtrix3-dev
