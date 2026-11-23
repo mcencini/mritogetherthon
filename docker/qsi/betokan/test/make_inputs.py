@@ -52,6 +52,12 @@ def main():
         f = tflow.get(tpl, resolution=res, suffix=suffix, desc=None, extension=".nii.gz")
         img = nb.load(f)
         write(out, f"{tpl}_res-{res}_{suffix}", img.get_fdata(), img.header.get_zooms()[:3])
+        # Thick slices, as in clinical DWI; they may also drive the mesh into
+        # self-intersection, which bet2 then reruns with more smoothing.
+        if (tpl, res, suffix) == ("MNI152NLin2009cAsym", 1, "T1w"):
+            data, (dx, dy, dz) = img.get_fdata(), img.header.get_zooms()[:3]
+            write(out, f"{tpl}_res-1_{suffix}_z4", data[:, :, ::4], (dx, dy, 4 * dz))
+            write(out, f"{tpl}_res-1_{suffix}_x3", data[::3], (3 * dx, dy, dz))
 
     from dipy.data import get_fnames
     for name in ["stanford_hardi", "sherbrooke_3shell"]:
