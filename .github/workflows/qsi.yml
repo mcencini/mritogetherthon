@@ -98,7 +98,9 @@ jobs:
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
       # The official environments hold neither pip nor, in QSIRecon's, pytest:
-      # pytest is installed on the runner, for the image's Python, and mounted.
+      # pytest is installed on the runner, for the image's Python, and mounted:
+      # pip evaluates markers for the runner's Python, so the backports pytest
+      # needs before 3.11 are named.
       - name: Unit tests in pennlinc/${{ matrix.name }}:${{ matrix.ref }}
         run: |
           image=pennlinc/${{ matrix.name }}:${{ matrix.ref }}
@@ -106,7 +108,7 @@ jobs:
           py=$(docker run --rm --entrypoint python "$image" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')
           echo "Python $py"
           python3 -m pip install -q --target deps --python-version "$py" --only-binary=:all: \
-            pytest pytest-xdist pytest-env toml
+            pytest pytest-xdist pytest-env toml exceptiongroup tomli
           git clone -q --depth 1 --branch ${{ matrix.ref }} https://github.com/PennLINC/${{ matrix.name }}.git src
           mkdir reports && chmod a+w reports
           docker run --rm --entrypoint bash -e PYTHONPATH=/deps \
