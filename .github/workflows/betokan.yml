@@ -93,7 +93,9 @@ jobs:
         if: matrix.arch == 'amd64'
         run: |
           curl -fsSL -o libbetokan_orig.a "https://raw.githubusercontent.com/PennLINC/qsiprep_TORTOISE/$TORTOISE_SHA/external_libraries/bet/Linux/libbetokan.a"
-          g++ -O2 -o harness_orig docker/qsi/betokan/test/harness.cpp libbetokan_orig.a -lz
+          # Its fslio.o calls nifticlib, which ITK provides inside TORTOISE.
+          sudo apt-get install -y -q libnifti2-dev > /dev/null
+          g++ -O2 -o harness_orig docker/qsi/betokan/test/harness.cpp libbetokan_orig.a -lniftiio -lz
           mkdir -p results/diag && cd results/diag
           ar t ../../libbetokan_orig.a > members.txt
           ar x ../../libbetokan_orig.a ok3.o
@@ -117,6 +119,7 @@ jobs:
           pip install -q nibabel numpy
           python docker/qsi/betokan/test/compare.py arch inputs results | tee results/table.md
           cp fsl-versions.txt results/
+          for l in results/*.log; do echo "== $l"; cat "$l"; done
           {
             echo "## ${{ matrix.arch }}: original library / this reimplementation / FSL bet2 -f 0.3 -m"
             echo
