@@ -48,13 +48,13 @@ FROM ants-${TARGETARCH} AS ants
 
 # unpile, QSIPrep's distortion correction, is a Rust program packaged as a wheel:
 # PyPI has it for amd64 Linux and arm64 macOS only, so on arm64 Linux it is built
-# from its source, at the version QSIPrep requires.
+# from its source, at the version QSIPrep requires. It compiles a copy of HDF5.
 FROM debian:trixie-slim AS unpile-amd64
 RUN mkdir /wheels
 
 FROM rust:1-slim-trixie AS unpile-arm64
 ARG UNPILE_REF=0.2.0
-RUN apt-get update && apt-get install -y --no-install-recommends git python3-venv \
+RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ git make python3-venv \
  && python3 -m venv /maturin && /maturin/bin/pip install -q "maturin>=1.7,<2" \
  && git clone -q --depth 1 --branch "$UNPILE_REF" https://github.com/PennLINC/unpile-rs.git /src \
  && cd /src && /maturin/bin/maturin build --release --compatibility linux -o /wheels

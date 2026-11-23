@@ -42,13 +42,23 @@ jobs:
       # Cached in GitHub's cache, so that a push rebuilds only what changed. The
       # tools come first, on their own: ANTs' compilation on arm64 takes long,
       # and its cache is kept even when the rest of the build fails.
+      - name: Build ANTs
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/qsi/Dockerfile
+          target: ants
+          cache-from: type=gha,scope=qsi-ants-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=qsi-ants-${{ matrix.arch }}
       - name: Build the tools
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/qsi/Dockerfile
           target: tools
-          cache-from: type=gha,scope=qsi-tools-${{ matrix.arch }}
+          cache-from: |
+            type=gha,scope=qsi-ants-${{ matrix.arch }}
+            type=gha,scope=qsi-tools-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=qsi-tools-${{ matrix.arch }}
       - name: Build
         uses: docker/build-push-action@v6
@@ -58,6 +68,7 @@ jobs:
           tags: mritogetherthon
           load: true
           cache-from: |
+            type=gha,scope=qsi-ants-${{ matrix.arch }}
             type=gha,scope=qsi-tools-${{ matrix.arch }}
             type=gha,scope=qsi-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=qsi-${{ matrix.arch }}
