@@ -22,8 +22,11 @@
       argv[1] float[3] voxel sizes in mm, argv[2] the float image (x fastest),
       argv[3] the caller's float output, same size; then "-f" followed by a
       pointer to a float (not a string), and "-v".
-    - The output is the mask that `bet2 -m` saves, 1 in the brain and 0
-      elsewhere, written as float in the input's voxel order.
+    - The output is the brain image bet2 saves by default, the input inside
+      the brain and 0 outside, in the input's voxel order; TORTOISE takes its
+      nonzero voxels as the mask. The original ok3.o writes the same: on the
+      volumes tested its output is identical to this, voxel for voxel.
+    - Nothing is printed: the original ignores "-v", so this does too.
     - The option parser is gone: every other option keeps bet2's default, and
       the code only bet2's other outputs use (outline, skull, mesh, CT, -t,
       -c, --binaryMask) is removed. The remaining functions are copied
@@ -396,19 +399,18 @@ int mainokan(int argc, char *argv[]) {
   float *out = (float *) argv[3];
 
   float fractional_threshold = 0.5;
-  bool verbose = false;
-  for (int a = 4; a < argc; a++) {
-    if (!strcmp(argv[a], "-f") && a + 1 < argc) fractional_threshold = *(const float *) argv[++a];
-    else if (!strcmp(argv[a], "-v")) verbose = true;
-  }
+  for (int a = 4; a + 1 < argc; a++)
+    if (!strcmp(argv[a], "-f")) fractional_threshold = *(const float *) argv[++a];
 
   if (fractional_threshold < 0 || fractional_threshold > 1) {
     cerr << endl << "Fractional intensity threshold must be between 0 and 1!" << endl;
     return -1;
   }
 
-  // In place of read_volume: same voxel order, voxel sizes in mm, and no
-  // orientation, which read_volume only uses for the header.
+  // In place of read_volume: the caller's voxel order and voxel sizes. With
+  // no orientation given, nothing is mirrored, whereas read_volume mirrors x
+  // of a neurological image (positive determinant) into FSL's radiological
+  // order; so did the original, which also had no orientation to go by.
   const int xsize = sizes[0], ysize = sizes[1], zsize = sizes[2];
   volume<float> testvol(xsize, ysize, zsize);
   testvol.setdims(res[0], res[1], res[2]);
@@ -427,15 +429,6 @@ int mainokan(int argc, char *argv[]) {
 
   bet_parameters bp = adjust_initial_mesh(testvol, m, radiusarg, xarg, yarg, zarg);
 
-  if (verbose)
-    {
-      cout<<"min "<<bp.min<<" thresh2 "<<bp.t2<<" thresh "<<bp.t<<" thresh98 "<<bp.t98<<" max "<<bp.max<<endl;
-      cout<<"c-of-g "<<bp.cog.X<<" "<<bp.cog.Y<<" "<<bp.cog.Z<<" mm"<<endl;
-      cout<<"radius "<<bp.radius<<" mm"<<endl;
-      cout<<"median within-brain intensity "<<bp.tm<<endl;
-    }
-
-
   Mesh moriginal=m;
 
   const double rmin=3.33 * smootharg;
@@ -452,16 +445,12 @@ int mainokan(int argc, char *argv[]) {
     }
 
   double tmp = m.self_intersection(moriginal);
-  if (verbose)
-    cout<<"self-intersection total "<<tmp<<" (threshold=4000.0) "<<endl;
-
   bool self_intersection = (tmp > self_intersection_threshold);
   int pass = 0;
 
   //self-intersection treatment
   while (self_intersection)
     {
-      if (self_intersection && verbose) {cout<<"thus will rerun with higher smoothness constraint"<<endl;};
       m = moriginal;
       l = 0;
       pass++;
@@ -476,20 +465,17 @@ int mainokan(int argc, char *argv[]) {
 
       self_intersection = (tmp > self_intersection_threshold);
 
-      if (verbose)
-	cout<<"self-intersection total "<<tmp<<" (threshold=4000.0) "<<endl;
-
       if (pass==10) // give up
 	self_intersection=0;
     }
 
   volume<short> brainmask = make_mask_from_mesh(testvol, m);
 
-  // What `bet2 -m` saves, (short)1-brainmask, as float.
+  // bet2's default output, the segmented brain image.
   for (int k=0; k<zsize; k++)
     for (int j=0; j<ysize; j++)
       for (int i=0; i<xsize; i++)
-	out[i + (size_t) xsize * (j + (size_t) ysize * k)] = 1 - brainmask.value(i, j, k);
+	out[i + (size_t) xsize * (j + (size_t) ysize * k)] = (1-brainmask.value(i, j, k)) * testvol.value(i, j, k);
 
   return 0;
 }

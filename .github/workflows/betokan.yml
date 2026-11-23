@@ -114,14 +114,14 @@ jobs:
               [ -x harness_$kind ] || continue
               { time ./harness_$kind "$t" "inputs/$n.raw" "results/$n.$kind.raw" || echo "exit $?"; } > "results/$n.$kind.log" 2>&1
             done
-            { time "$FSLDIR/bin/bet2" "inputs/$n.nii.gz" "results/${n}_bet2" -f 0.3 -m -n -v || echo "exit $?"; } > "results/$n.bet2.log" 2>&1
+            { time "$FSLDIR/bin/bet2" "inputs/$n.nii.gz" "results/${n}_bet2" -f 0.3 -m -v || echo "exit $?"; } > "results/$n.bet2.log" 2>&1
           done
           pip install -q nibabel numpy
           python docker/qsi/betokan/test/compare.py arch inputs results | tee results/table.md
           cp fsl-versions.txt results/
           for l in results/*.log; do echo "== $l"; cat "$l"; done
           {
-            echo "## ${{ matrix.arch }}: original library / this reimplementation / FSL bet2 -f 0.3 -m"
+            echo "## ${{ matrix.arch }}: original library / this reimplementation / FSL bet2 -f 0.3"
             echo
             cat results/table.md
             echo

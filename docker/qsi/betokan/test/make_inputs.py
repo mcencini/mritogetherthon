@@ -6,7 +6,8 @@ Each volume NAME is written three ways, with the same voxels in the same order
 (the file's, which is also ITK's buffer order):
   NAME.txt   "nx ny nz dx dy dz"   for the harness
   NAME.raw   float32, x fastest    for the harness
-  NAME.nii.gz float32              for FSL's bet2
+  NAME.nii.gz float32              for FSL's bet2, with a radiological affine
+                                   (x mirrored) so that FSL does not reorder x
 
     python make_inputs.py OUTDIR [DWI_DIR ...]
 """
@@ -17,10 +18,13 @@ import nibabel as nb
 import numpy as np
 
 
-def write(out, name, data, zooms, affine):
+def write(out, name, data, zooms):
     data = np.asarray(data, dtype=np.float32)
     (out / f"{name}.txt").write_text("%d %d %d %.9g %.9g %.9g\n" % (*data.shape, *zooms))
     data.ravel(order="F").tofile(out / f"{name}.raw")
+    # read_volume mirrors x of a neurological image; mainokan gets no
+    # orientation and mirrors nothing.
+    affine = np.diag([-zooms[0], zooms[1], zooms[2], 1.0])
     img = nb.Nifti1Image(data, affine)
     img.header.set_zooms(zooms)
     img.to_filename(out / f"{name}.nii.gz")
@@ -47,17 +51,17 @@ def main():
     ]:
         f = tflow.get(tpl, resolution=res, suffix=suffix, desc=None, extension=".nii.gz")
         img = nb.load(f)
-        write(out, f"{tpl}_res-{res}_{suffix}", img.get_fdata(), img.header.get_zooms()[:3], img.affine)
+        write(out, f"{tpl}_res-{res}_{suffix}", img.get_fdata(), img.header.get_zooms()[:3])
 
     from dipy.data import get_fnames
     for name in ["stanford_hardi", "sherbrooke_3shell"]:
         dwi, bval, _ = get_fnames(name=name)
         data, img = mean_b0(dwi, bval)
-        write(out, f"{name}_meanb0", data, img.header.get_zooms()[:3], img.affine)
+        write(out, f"{name}_meanb0", data, img.header.get_zooms()[:3])
     # A single b=0, noisier than the mean TORTOISE usually passes.
     dwi, bval, _ = get_fnames(name="stanford_hardi")
     img = nb.load(dwi)
-    write(out, "stanford_hardi_b0first", img.dataobj[..., 0], img.header.get_zooms()[:3], img.affine)
+    write(out, "stanford_hardi_b0first", img.dataobj[..., 0], img.header.get_zooms()[:3])
 
     for d in sys.argv[2:]:
         dwis = [f for f in sorted(Path(d).rglob("*_dwi.nii.gz")) if "part-phase" not in f.name]
@@ -70,7 +74,7 @@ def main():
                 continue
             data, img = mean_b0(dwi, bval)
             name = Path(d).name + "_" + dwi.name.replace("_dwi.nii.gz", "") + "_meanb0"
-            write(out, name, data, img.header.get_zooms()[:3], img.affine)
+            write(out, name, data, img.header.get_zooms()[:3])
 
 
 if __name__ == "__main__":

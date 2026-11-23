@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 int mainokan(int argc, char *argv[]);
@@ -23,9 +24,9 @@ int main(int argc, char **argv)
     std::ifstream raw(argv[2], std::ios::binary);
     if (!raw.read((char *) img.data(), n * sizeof(float))) { std::cerr << "short " << argv[2] << "\n"; return 1; }
 
-    // TORTOISE leaves its buffer uninitialised; a sentinel shows voxels that
+    // TORTOISE leaves its buffer uninitialised; NaN shows voxels that
     // mainokan does not write.
-    std::vector<float> mask(n, -7.f);
+    std::vector<float> mask(n, std::numeric_limits<float>::quiet_NaN());
 
     char *args[7] = {0};
     args[0] = (char *) sizes;
