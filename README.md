@@ -18,7 +18,7 @@ is that environment, and the place to ask for help.
 - [Docker](https://docs.docker.com/get-started/get-docker/): Docker Desktop on
   macOS and Windows, Docker Engine or Docker Desktop on Linux, with at least
   8 GB of memory for Docker (16 GB in the computer is recommended)
-- about 40 GB of free disk
+- about 15 GB of free disk (the download is about 2 GB, and the environment takes about 7 GB once installed)
 - a [GitHub account](https://github.com/signup), to ask for help; and for one
   member of your team, to send the team's work
 

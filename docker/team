@@ -61,7 +61,7 @@ add)
     else
         github-login || exit 1
         login=$(gh api user --jq .login)
-        gh repo fork "$UPSTREAM" --clone=false --remote=false >/dev/null 2>&1 || true
+        gh repo fork "$UPSTREAM" --clone=false || true
         copy_fork "$login" "$1"
         # The fork then has the starting notebooks, for the others to follow.
         git -C "$TEAMDIR" add -A

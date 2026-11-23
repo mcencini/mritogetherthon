@@ -12,6 +12,7 @@
 # in the way when `git pull` brings the team's own.
 MATERIAL=${MATERIAL_DIR:-$HOME/material}
 URL=${MATERIAL_URL:-https://github.com/mcencini/mritogetherthon.git}
+BRANCH=${MATERIAL_BRANCH:-main}
 TEAMDIR=${TEAM_DIR:-$HOME/team}
 
 # The folder is shared with the computer, whose user ids may differ.
@@ -19,11 +20,11 @@ git config --global --get-all safe.directory | grep -qx '\*' \
     || git config --global --add safe.directory '*'
 
 if [ ! -d "$MATERIAL/.git" ]; then
-    timeout 120 git clone -q --depth 1 --sparse "$URL" "$MATERIAL" \
-        && git -C "$MATERIAL" sparse-checkout set handson data answers \
+    timeout 120 git clone -q --depth 1 --branch "$BRANCH" --sparse "$URL" "$MATERIAL" \
+        && git -C "$MATERIAL" sparse-checkout set --no-cone /handson/ /data/ /answers/ \
         || { echo "The hands-on material could not be downloaded from $URL"; exit 1; }
 else
-    timeout 30 git -C "$MATERIAL" fetch -q --depth 1 origin main \
+    timeout 30 git -C "$MATERIAL" fetch -q --depth 1 origin "$BRANCH" 2>/dev/null \
         && git -C "$MATERIAL" reset -q --hard FETCH_HEAD \
         || echo "The hands-on material could not be updated: is the computer online?"
 fi
