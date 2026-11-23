@@ -30,8 +30,8 @@ def write(out, name, data, zooms, affine):
 def mean_b0(dwi, bval):
     img = nb.load(dwi)
     bvals = np.loadtxt(bval).ravel()
-    b0 = img.dataobj[..., bvals <= 50]
-    return np.mean(np.asarray(b0, dtype=np.float64), axis=-1), img
+    data = np.asarray(img.dataobj, dtype=np.float64)
+    return data[..., bvals <= 50].mean(axis=-1), img
 
 
 def main():
@@ -60,9 +60,13 @@ def main():
     write(out, "stanford_hardi_b0first", img.dataobj[..., 0], img.header.get_zooms()[:3], img.affine)
 
     for d in sys.argv[2:]:
-        for dwi in sorted(Path(d).rglob("*_dwi.nii.gz"))[:2]:
+        dwis = [f for f in sorted(Path(d).rglob("*_dwi.nii.gz")) if "part-phase" not in f.name]
+        for dwi in dwis[:2]:
             bval = Path(str(dwi).replace(".nii.gz", ".bval"))
             if not bval.exists():
+                bval = Path(str(bval).replace("_part-mag", ""))
+            if not bval.exists():
+                print(f"no bval for {dwi}")
                 continue
             data, img = mean_b0(dwi, bval)
             name = Path(d).name + "_" + dwi.name.replace("_dwi.nii.gz", "") + "_meanb0"
