@@ -1,0 +1,154 @@
+# TORTOISE's brain masking, libbetokan.a, rebuilt from FSL's bet2 source
+# (docker/qsi/betokan) and checked against the original x86-64 archive and
+# FSL's bet2 command on the same volumes, on amd64 and arm64.
+name: betokan
+
+on:
+  push:
+    branches: [betokan]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TORTOISE_SHA: 6108a894203d60b6cb9188107e5183b17af95b4a
+  FSL_CHANNEL: https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public
+
+jobs:
+  inputs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: QSIPrep's test data
+        continue-on-error: true
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/PennLINC/qsiprep/26.2.0/.circleci/data_versions.txt > versions.txt
+          set -a; . ./versions.txt; set +a
+          mkdir -p data/forrest_gump data/nibs
+          curl -fsSL --retry 5 "$FORREST_GUMP_URL" | tar -xJ -C data/forrest_gump
+          curl -fsSL --retry 5 "$NIBS_URL" | tar -xJ -C data/nibs
+          find data -name '*_dwi.nii.gz' | head -20
+      - name: Volumes
+        run: |
+          pip install -q nibabel numpy templateflow dipy
+          mkdir -p data/forrest_gump data/nibs
+          python docker/qsi/betokan/test/make_inputs.py inputs data/forrest_gump data/nibs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: betokan-inputs
+          path: inputs
+
+  test:
+    needs: inputs
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            conda: linux-64
+            cxxflags: -O2
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            conda: linux-aarch64
+            cxxflags: -O2 -fsigned-char
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      FSLDIR: ${{ github.workspace }}/fsl
+      FSLOUTPUTTYPE: NIFTI_GZ
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: betokan-inputs
+          path: inputs
+      # The packages of docker/qsi/Dockerfile's fsl stage, with micromamba
+      # 2.3.3 as there, and fsl-armawrap for the headers newimage includes.
+      - name: FSL
+        run: |
+          curl -fsSL https://micro.mamba.pm/api/micromamba/${{ matrix.conda }}/2.3.3 | tar -xj bin/micromamba
+          export MAMBA_ROOT_PREFIX=$RUNNER_TEMP/mamba
+          bin/micromamba create -y -q -p "$FSLDIR" -c "$FSL_CHANNEL" -c conda-forge \
+            fsl-base fsl-avwutils fsl-warpfns \
+            fsl-bet2=2111.9 fsl-flirt=2111.4 fsl-fast4=2111.3 fsl-fugue=2603.0 \
+            fsl-mcflirt=2111.0 fsl-miscmaths=2412.6 fsl-mist=2512.2 fsl-topup=2203.5 \
+            fsl-eddy=2602.0 fsl-armawrap
+          bin/micromamba list -p "$FSLDIR" | grep -E 'fsl-(bet2|meshclass|newimage|miscmaths|utils|znzlib|cprob|armawrap|newnifti)|libstdcxx|openblas' | tee fsl-versions.txt
+      - name: Build libbetokan.a and the harness
+        run: |
+          B=docker/qsi/betokan
+          make -C $B FSLDIR="$FSLDIR" CXXFLAGS="${{ matrix.cxxflags }}"
+          g++ ${{ matrix.cxxflags }} -o harness_ours $B/test/harness.cpp $B/libbetokan.a $(make -s -C $B FSLDIR="$FSLDIR" ldflags)
+          ldd harness_ours | grep -E 'fsl|stdc' || true
+      - name: Original x86-64 library
+        if: matrix.arch == 'amd64'
+        run: |
+          curl -fsSL -o libbetokan_orig.a "https://raw.githubusercontent.com/PennLINC/qsiprep_TORTOISE/$TORTOISE_SHA/external_libraries/bet/Linux/libbetokan.a"
+          g++ -O2 -o harness_orig docker/qsi/betokan/test/harness.cpp libbetokan_orig.a -lz
+          mkdir -p results/diag && cd results/diag
+          ar t ../../libbetokan_orig.a > members.txt
+          ar x ../../libbetokan_orig.a ok3.o
+          nm -C ok3.o > ok3.nm.txt
+          strings -a ok3.o > ok3.strings.txt
+          objdump -d -C --no-show-raw-insn ok3.o > ok3.dis.txt
+          strings -a ../../libbetokan_orig.a | grep -iE 'id:|version|fsl|v[0-9]\.[0-9]' | sort -u > archive.strings.txt || true
+          rm ok3.o
+      - name: Masks
+        run: |
+          mkdir -p results
+          TIMEFORMAT='%R s'
+          for t in inputs/*.txt; do
+            n=$(basename "$t" .txt)
+            for kind in orig ours; do
+              [ -x harness_$kind ] || continue
+              { time ./harness_$kind "$t" "inputs/$n.raw" "results/$n.$kind.raw" || echo "exit $?"; } > "results/$n.$kind.log" 2>&1
+            done
+            { time "$FSLDIR/bin/bet2" "inputs/$n.nii.gz" "results/${n}_bet2" -f 0.3 -m -n -v || echo "exit $?"; } > "results/$n.bet2.log" 2>&1
+          done
+          pip install -q nibabel numpy
+          python docker/qsi/betokan/test/compare.py arch inputs results | tee results/table.md
+          cp fsl-versions.txt results/
+          {
+            echo "## ${{ matrix.arch }}: original library / this reimplementation / FSL bet2 -f 0.3 -m"
+            echo
+            cat results/table.md
+            echo
+            echo "FSL packages:"; echo '```'; cat fsl-versions.txt; echo '```'
+            echo "<details><summary>verbose output</summary>"; echo
+            for l in results/*.log; do echo "**$(basename $l)**"; echo '```'; cat "$l"; echo '```'; done
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: betokan-results-${{ matrix.arch }}
+          path: results
+
+  compare:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: betokan-results-*
+      - name: amd64 against arm64
+        run: |
+          pip install -q nibabel numpy
+          {
+            echo "## amd64 against arm64"
+            echo
+            python docker/qsi/betokan/test/compare.py cross betokan-results-amd64 betokan-results-arm64
+          } | tee -a "$GITHUB_STEP_SUMMARY"
