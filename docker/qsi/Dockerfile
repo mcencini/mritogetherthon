@@ -150,6 +150,8 @@ RUN apt-get install -y --no-install-recommends \
  && ! ldd /src/TORTOISEV4/bin/TORTOISEProcess | grep -q 'not found'
 
 # DSI Studio, with its atlases and UNet-Studio's networks, at QSIPrep's commits.
+# TIPL uses uint8_t without including <cstdint>, which GCC 11, on QSIPrep's
+# Ubuntu, included through other headers and GCC 14, on Debian's, does not.
 FROM builder AS dsistudio
 ARG DSI_SHA=03476a67bc96a1d0c90928001b5dd1c490539ee0
 ARG TIPL_SHA=ebd2d8b1ee13d6f87e78db62f2f1a1400b353898
@@ -163,7 +165,8 @@ RUN apt-get install -y --no-install-recommends \
  && curl -fsSLO "https://github.com/frankyeh/TIPL/archive/$TIPL_SHA.zip" \
  && unzip -q "$TIPL_SHA.zip" && mv "TIPL-$TIPL_SHA" src/TIPL && rm "$TIPL_SHA.zip" \
  && mkdir build && cd build \
- && qmake ../src QMAKE_CFLAGS+="$(cat /signed-char.flag)" QMAKE_CXXFLAGS+="$(cat /signed-char.flag)" \
+ && qmake ../src QMAKE_CFLAGS+="$(cat /signed-char.flag)" \
+      QMAKE_CXXFLAGS+="-include cstdint $(cat /signed-char.flag)" \
  && make -j"$(nproc)" \
  && cd /opt/dsi-studio && mv build/dsi_studio . && chmod 755 dsi_studio \
  && cp -R src/other/* . && rm -rf src build \
