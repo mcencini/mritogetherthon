@@ -177,7 +177,7 @@ jobs:
           git clone -q --depth 1 --branch ${{ matrix.ref }} https://github.com/${{ matrix.org }}/${{ matrix.name }}.git src
           mkdir reports && chmod a+w reports
           case ${{ matrix.name }} in
-            mriqc) tests='cp "$(python -c "import mriqc, os; print(os.path.dirname(mriqc.__file__))")/_version.py" mriqc/ && \
+            mriqc) tests='cp "$(python -I -c "import mriqc, os; print(os.path.dirname(mriqc.__file__))")/_version.py" mriqc/ && \
                      python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
                        --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py' ;;
             *) tests='mkdir -p /tmp/qsi-out /tmp/qsi-work && python -m pytest ${{ matrix.name }}/tests -n auto -q \

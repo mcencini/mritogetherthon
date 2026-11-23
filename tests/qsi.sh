@@ -30,11 +30,12 @@ for name in qsiprep qsirecon; do
         --junitxml="${REPORTS:-$HOME}/$name.xml") || status=1
 done
 # MRIQC's, as its CI runs them (without stopping at the first failure), from its
-# sources with the installed _version.py, as its CI's build of the sources writes.
+# sources with the installed _version.py, as its CI's build of the sources writes
+# (python -I, so that the installed MRIQC is imported, not the sources' copy).
 version=$(python -c 'import mriqc; print(mriqc.__version__)')
 rm -rf mriqc
 git clone -q --depth 1 --branch "$version" https://github.com/nipreps/mriqc.git
-cp "$(python -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_version.py" mriqc/mriqc/
+cp "$(python -I -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_version.py" mriqc/mriqc/
 (cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
     --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
     --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
