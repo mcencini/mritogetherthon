@@ -136,6 +136,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && find /src/TORTOISEV4/bin -maxdepth 1 -type f -executable -exec patchelf --force-rpath --set-rpath '$ORIGIN/lib/itk' {} \; \
  && ! ldd /src/TORTOISEV4/bin/TORTOISEProcess | grep -q 'not found'
 
+# DSI Studio, with its atlases and UNet-Studio's networks, at QSIPrep's commits.
+FROM debian:trixie-slim AS dsistudio
+ARG DSI_SHA=03476a67bc96a1d0c90928001b5dd1c490539ee0
+ARG TIPL_SHA=ebd2d8b1ee13d6f87e78db62f2f1a1400b353898
+ARG ATLAS_SHA=bf5afab9b2405f076b1acdf4706c9688525eb713
+ARG UNET_SHA=2e839aae744883983974194dcf6aeff154a82197
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential ca-certificates curl libboost-all-dev libglu1-mesa-dev \
+      libqt5charts5-dev libqt5opengl5-dev qtbase5-dev qt5-qmake unzip zlib1g-dev \
+ && mkdir -p /opt/dsi-studio && cd /opt/dsi-studio \
+ && curl -fsSLO "https://github.com/frankyeh/DSI-Studio/archive/$DSI_SHA.zip" \
+ && unzip -q "$DSI_SHA.zip" && mv "DSI-Studio-$DSI_SHA" src && rm "$DSI_SHA.zip" \
+ && curl -fsSLO "https://github.com/frankyeh/TIPL/archive/$TIPL_SHA.zip" \
+ && unzip -q "$TIPL_SHA.zip" && mv "TIPL-$TIPL_SHA" src/TIPL && rm "$TIPL_SHA.zip" \
+ && mkdir build && cd build && qmake ../src && make -j"$(nproc)" \
+ && cd /opt/dsi-studio && mv build/dsi_studio . && chmod 755 dsi_studio \
+ && cp -R src/other/* . && rm -rf src build \
+ && curl -fsSLO "https://github.com/frankyeh/UNet-Studio-Data/archive/$UNET_SHA.zip" \
+ && unzip -q "$UNET_SHA.zip" && rm "$UNET_SHA.zip" \
+ && mv "UNet-Studio-Data-$UNET_SHA/network" . && rm -rf "UNet-Studio-Data-$UNET_SHA" \
+ && curl -fsSLO "https://github.com/frankyeh/DSI-Studio-atlas/archive/$ATLAS_SHA.zip" \
+ && unzip -q "$ATLAS_SHA.zip" && rm "$ATLAS_SHA.zip" \
+ && rm -rf "DSI-Studio-atlas-$ATLAS_SHA/.git" && mv "DSI-Studio-atlas-$ATLAS_SHA" atlas
+
 # The tools, built apart so that their (long) builds are cached on their own.
 FROM scratch AS tools
 COPY --from=fsl /opt/fsl /opt/fsl
@@ -146,6 +170,7 @@ COPY --from=tissue3 /opt/3Tissue /opt/3Tissue
 COPY --from=niimath /opt/niimath /opt/niimath
 COPY --from=tortoise /src/TORTOISEV4/bin /src/TORTOISEV4/bin
 COPY --from=tortoise /src/TORTOISEV4/settings /src/TORTOISEV4/settings
+COPY --from=dsistudio /opt/dsi-studio /opt/dsi-studio
 
 FROM ${BASE}
 ARG QSIPREP_REF
@@ -153,9 +178,12 @@ ARG QSIRECON_REF
 USER root
 
 # MRtrix3 3.0.4, the stable version QSIPrep's image pins, from Debian, which
-# builds it for both processors.
+# builds it for both processors; and the libraries DSI Studio and TORTOISE run on.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends mrtrix3 \
+ && apt-get install -y --no-install-recommends mrtrix3 libfftw3-double3 libfftw3-single3 \
+      libboost-filesystem1.83.0 libboost-iostreams1.83.0 libboost-regex1.83.0 libboost-system1.83.0 \
+      libgomp1 libqt5charts5 libqt5gui5t64 libqt5network5t64 libqt5opengl5t64 libqt5sql5t64 \
+      libqt5svg5 libqt5widgets5t64 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=tools /opt/fsl /opt/fsl
@@ -164,13 +192,14 @@ COPY --from=tools /opt/mrtrix3-dev /opt/mrtrix3-dev
 COPY --from=tools /opt/3Tissue /opt/3Tissue
 COPY --from=tools /opt/niimath /opt/niimath
 COPY --from=tools /src/TORTOISEV4 /src/TORTOISEV4
+COPY --from=tools /opt/dsi-studio /opt/dsi-studio
 # FSL's and ANTs' own folders go after the environment's, so that their Python
 # and libraries never shadow the notebooks'. FSL's commands are in its bin:
 # the wrappers its packages make in share/fsl/bin need post-link scripts, which
 # micromamba does not run.
 ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
-    PATH="$PATH:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
+    PATH="$PATH:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
     IS_DOCKER_8395080871=1
 
@@ -197,7 +226,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && cp -r /tmp/qsirecon/scripts /opt/qsi/qsirecon-scripts \
  && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt /wheels \
  && python -c "import qsiprep, qsirecon; assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; assert qsirecon.__version__ == '$QSIRECON_REF', qsirecon.__version__" \
- && command -v unpile
+ && command -v unpile \
+ && ! ldd /opt/dsi-studio/dsi_studio /src/TORTOISEV4/bin/TORTOISEProcess /opt/3Tissue/bin/ss3t_csd_beta1 \
+        /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath | grep 'not found'
 
 # The templates both prefetch, and QSIRecon's atlases at the path it looks for
 # them, outside /home/mri, where the attendee's folder is mounted over the image.
