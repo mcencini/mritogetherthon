@@ -160,6 +160,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && unzip -q "$ATLAS_SHA.zip" && rm "$ATLAS_SHA.zip" \
  && rm -rf "DSI-Studio-atlas-$ATLAS_SHA/.git" && mv "DSI-Studio-atlas-$ATLAS_SHA" atlas
 
+# AFNI: the 17 programs QSIPrep's image ships (3dresample, 3dcalc, 3dAutobox
+# and the others its workflows call), built from source at its tag, without the
+# GUI, SUMA, Python, R or tcsh, with the shared libraries they link to.
+FROM debian:trixie-slim AS afni
+ARG AFNI_REF=AFNI_25.2.09
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential ca-certificates cmake git libexpat1-dev libgsl-dev libqhull-dev \
+      ninja-build patchelf python3 zlib1g-dev \
+ && git clone -q --depth 1 --branch "$AFNI_REF" https://github.com/afni/afni.git /src/afni \
+ && cmake -S /src/afni -B /build -GNinja -DCMAKE_BUILD_TYPE=Release \
+      -DCOMP_GUI=OFF -DCOMP_SUMA=OFF -DCOMP_PYTHON=OFF -DCOMP_TCSH=OFF -DCOMP_RSTATS=OFF \
+      -DCOMP_ATLASES=OFF -DBUILD_TESTING=OFF -DAFNI_COMPILER_CHECK=OFF \
+ && progs="3dAutobox 3dAutomask 3dFWHMx 3dQwarp 3dSeg 3dSkullStrip 3dTcat 3dTshift \
+      3dTsplit4D 3dTstat 3dUnifize 3dWarp 3dZeropad 3dcalc 3drefit 3dresample 3dvolreg" \
+ && cmake --build /build --target $progs \
+ && mkdir -p /opt/afni/bin /opt/afni/lib \
+ && for p in $progs; do cp "$(find /build -type f -name "$p" -perm -u+x | head -1)" /opt/afni/bin/; done \
+ && for lib in $(ldd /opt/afni/bin/* | awk '/=> \/build/ {print $3}' | sort -u); do cp "$lib" /opt/afni/lib/; done \
+ && find /opt/afni/bin -type f -exec patchelf --force-rpath --set-rpath '$ORIGIN/../lib' {} \; \
+ && find /opt/afni/lib -type f -exec patchelf --force-rpath --set-rpath '$ORIGIN' {} \; \
+ && ! ldd /opt/afni/bin/* | grep 'not found' \
+ && /opt/afni/bin/3dresample -help >/dev/null \
+ && rm -rf /src /build
+
 # The tools, built apart so that their (long) builds are cached on their own.
 FROM scratch AS tools
 COPY --from=fsl /opt/fsl /opt/fsl
@@ -171,6 +195,7 @@ COPY --from=niimath /opt/niimath /opt/niimath
 COPY --from=tortoise /src/TORTOISEV4/bin /src/TORTOISEV4/bin
 COPY --from=tortoise /src/TORTOISEV4/settings /src/TORTOISEV4/settings
 COPY --from=dsistudio /opt/dsi-studio /opt/dsi-studio
+COPY --from=afni /opt/afni /opt/afni
 
 FROM ${BASE}
 ARG QSIPREP_REF
@@ -183,7 +208,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends mrtrix3 libfftw3-double3 libfftw3-single3 \
       libboost-filesystem1.83.0 libboost-iostreams1.83.0 libboost-regex1.83.0 libboost-system1.83.0 \
       libgomp1 libqt5charts5 libqt5gui5t64 libqt5network5t64 libqt5opengl5t64 libqt5sql5t64 \
-      libqt5svg5 libqt5widgets5t64 \
+      libqt5svg5 libqt5widgets5t64 libgsl28 libqhull-r8.0 libqhull8.0 libexpat1 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=tools /opt/fsl /opt/fsl
@@ -193,14 +218,16 @@ COPY --from=tools /opt/3Tissue /opt/3Tissue
 COPY --from=tools /opt/niimath /opt/niimath
 COPY --from=tools /src/TORTOISEV4 /src/TORTOISEV4
 COPY --from=tools /opt/dsi-studio /opt/dsi-studio
+COPY --from=tools /opt/afni /opt/afni
 # FSL's and ANTs' own folders go after the environment's, so that their Python
 # and libraries never shadow the notebooks'. FSL's commands are in its bin:
 # the wrappers its packages make in share/fsl/bin need post-link scripts, which
 # micromamba does not run.
 ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
-    PATH="$PATH:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
+    PATH="$PATH:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
+    AFNI_IMSAVE_WARNINGS=NO \
     IS_DOCKER_8395080871=1
 
 # QSIPrep and QSIRecon in the environment's own Python, every package already

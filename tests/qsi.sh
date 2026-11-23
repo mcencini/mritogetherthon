@@ -8,7 +8,7 @@ set -eu
 cd /tmp
 for tool in eddy_cpu topup bet flirt fslmaths antsRegistration antsApplyTransforms \
     N4BiasFieldCorrection mrconvert dwidenoise mrdegibbs dwi2tensor dwibiascorrect \
-    dwidenoise2 ss3t_csd_beta1 niimath svht_denoise TORTOISEProcess DIFFPREP DRBUDDI unpile dsi_studio; do
+    dwidenoise2 ss3t_csd_beta1 niimath svht_denoise TORTOISEProcess DIFFPREP DRBUDDI unpile dsi_studio 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask 3dTsplit4D; do
     command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
 done
 echo "every tool is on PATH"
