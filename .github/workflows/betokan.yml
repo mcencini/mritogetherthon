@@ -88,7 +88,8 @@ jobs:
           B=docker/qsi/betokan
           make -C $B FSLDIR="$FSLDIR" CXXFLAGS="${{ matrix.cxxflags }}"
           g++ ${{ matrix.cxxflags }} -o harness_ours $B/test/harness.cpp $B/libbetokan.a $(make -s -C $B FSLDIR="$FSLDIR" ldflags)
-          ldd harness_ours | grep -E 'fsl|stdc' || true
+          ldd harness_ours | grep -E 'fsl|stdc|libz|not found' || true
+          ! ldd harness_ours | grep -q 'not found'
       - name: Original x86-64 library
         if: matrix.arch == 'amd64'
         run: |
