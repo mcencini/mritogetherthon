@@ -184,6 +184,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && /opt/afni/bin/3dresample -help >/dev/null \
  && rm -rf /src /build
 
+# Convert3D (c3d_affine_tool, which QSIPrep's gradient rotation calls), on the
+# ITK built for TORTOISE, whose libraries the image ships with TORTOISE.
+FROM tortoise AS c3d
+ARG C3D_REF=v1.4.6
+RUN git clone -q --depth 1 --branch "$C3D_REF" https://github.com/pyushkevich/c3d.git /src/c3d \
+ && cmake -S /src/c3d -B /tmp/c3d-build -GNinja -DCMAKE_BUILD_TYPE=Release \
+      -DITK_DIR=/opt/tortoise-itk/lib/cmake/ITK-5.3 -DCONVERT3D_USE_ITK_REMOTE_MODULES=OFF \
+      -DCMAKE_INSTALL_PREFIX=/opt/c3d \
+ && cmake --build /tmp/c3d-build && cmake --install /tmp/c3d-build \
+ && find /opt/c3d/bin -type f -exec patchelf --force-rpath --set-rpath /src/TORTOISEV4/bin/lib/itk {} \; \
+ && rm -rf /src/c3d /tmp/c3d-build
+
 # The tools, built apart so that their (long) builds are cached on their own.
 FROM scratch AS tools
 COPY --from=fsl /opt/fsl /opt/fsl
@@ -196,6 +208,7 @@ COPY --from=tortoise /src/TORTOISEV4/bin /src/TORTOISEV4/bin
 COPY --from=tortoise /src/TORTOISEV4/settings /src/TORTOISEV4/settings
 COPY --from=dsistudio /opt/dsi-studio /opt/dsi-studio
 COPY --from=afni /opt/afni /opt/afni
+COPY --from=c3d /opt/c3d /opt/c3d
 
 FROM ${BASE}
 ARG QSIPREP_REF
@@ -219,13 +232,14 @@ COPY --from=tools /opt/niimath /opt/niimath
 COPY --from=tools /src/TORTOISEV4 /src/TORTOISEV4
 COPY --from=tools /opt/dsi-studio /opt/dsi-studio
 COPY --from=tools /opt/afni /opt/afni
+COPY --from=tools /opt/c3d /opt/c3d
 # FSL's and ANTs' own folders go after the environment's, so that their Python
 # and libraries never shadow the notebooks'. FSL's commands are in its bin:
 # the wrappers its packages make in share/fsl/bin need post-link scripts, which
 # micromamba does not run.
 ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
-    PATH="$PATH:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
+    PATH="$PATH:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
     AFNI_IMSAVE_WARNINGS=NO \
     IS_DOCKER_8395080871=1
@@ -255,7 +269,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && python -c "import qsiprep, qsirecon; assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; assert qsirecon.__version__ == '$QSIRECON_REF', qsirecon.__version__" \
  && command -v unpile \
  && ! ldd /opt/dsi-studio/dsi_studio /src/TORTOISEV4/bin/TORTOISEProcess /opt/3Tissue/bin/ss3t_csd_beta1 \
-        /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath | grep 'not found'
+        /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
+        /opt/afni/bin/3dresample | grep 'not found'
 
 # The templates both prefetch, and QSIRecon's atlases at the path it looks for
 # them, outside /home/mri, where the attendee's folder is mounted over the image.
