@@ -46,6 +46,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 FROM ants-${TARGETARCH} AS ants
 
+# unpile, QSIPrep's distortion correction, is a Rust program packaged as a wheel:
+# PyPI has it for amd64 Linux and arm64 macOS only, so on arm64 Linux it is built
+# from its source, at the version QSIPrep requires.
+FROM debian:trixie-slim AS unpile-amd64
+RUN mkdir /wheels
+
+FROM rust:1-slim-trixie AS unpile-arm64
+ARG UNPILE_REF=0.2.0
+RUN apt-get update && apt-get install -y --no-install-recommends git python3-venv \
+ && python3 -m venv /maturin && /maturin/bin/pip install -q "maturin>=1.7,<2" \
+ && git clone -q --depth 1 --branch "$UNPILE_REF" https://github.com/PennLINC/unpile-rs.git /src \
+ && cd /src && /maturin/bin/maturin build --release --compatibility linux -o /wheels
+
+FROM unpile-${TARGETARCH} AS unpile
+
+# The tools, built apart so that their (long) builds are cached on their own.
+FROM scratch AS tools
+COPY --from=fsl /opt/fsl /opt/fsl
+COPY --from=ants /opt/ants /opt/ants
+COPY --from=unpile /wheels /wheels
+
 FROM ${BASE}
 ARG QSIPREP_REF
 ARG QSIRECON_REF
@@ -57,21 +78,25 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends mrtrix3 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=fsl /opt/fsl /opt/fsl
-COPY --from=ants /opt/ants /opt/ants
+COPY --from=tools /opt/fsl /opt/fsl
+COPY --from=tools /opt/ants /opt/ants
 # FSL's and ANTs' own folders go after the environment's, so that their Python
-# and libraries never shadow the notebooks'.
+# and libraries never shadow the notebooks'. FSL's commands are in its bin:
+# the wrappers its packages make in share/fsl/bin need post-link scripts, which
+# micromamba does not run.
 ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
-    PATH="$PATH:/opt/fsl/share/fsl/bin:/opt/ants/bin" \
+    PATH="$PATH:/opt/ants/bin:/opt/fsl/bin" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
     IS_DOCKER_8395080871=1
 
 # QSIPrep and QSIRecon in the environment's own Python, every package already
 # there kept at its version: their caps on numpy, pandas and the others are
 # lifted (overrides.txt). numpy 2 removed np.row_stack, an alias of np.vstack,
-# which both call. One of pyAFQ's dependencies (phamt) is compiled.
+# which both call; the patch leaves their versions as tagged. One of pyAFQ's
+# dependencies (phamt) is compiled.
 COPY docker/qsi/overrides.txt /tmp/overrides.txt
+COPY --from=tools /wheels /wheels
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && pip install --no-cache-dir uv \
  && pip list --format=freeze > /tmp/constraints.txt \
@@ -79,12 +104,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && git clone -q --depth 1 --branch "$QSIRECON_REF" https://github.com/PennLINC/qsirecon.git /tmp/qsirecon \
  && grep -rl 'np\.row_stack(' /tmp/qsiprep/qsiprep /tmp/qsirecon/qsirecon --include='*.py' \
       | xargs sed -i 's/np\.row_stack(/np.vstack(/g' \
- && uv pip install --system --no-cache --constraints /tmp/constraints.txt \
+ && SETUPTOOLS_SCM_PRETEND_VERSION_FOR_QSIPREP="$QSIPREP_REF" \
+    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_QSIRECON="$QSIRECON_REF" \
+    uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
       --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon toml \
  && apt-get purge -y --auto-remove gcc libc6-dev && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /opt/qsi && cp -r /tmp/qsiprep/scripts /opt/qsi/qsiprep-scripts \
  && cp -r /tmp/qsirecon/scripts /opt/qsi/qsirecon-scripts \
- && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt
+ && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt /wheels \
+ && python -c "import qsiprep, qsirecon; assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; assert qsirecon.__version__ == '$QSIRECON_REF', qsirecon.__version__" \
+ && command -v unpile
 
 # The templates both prefetch, and QSIRecon's atlases at the path it looks for
 # them, outside /home/mri, where the attendee's folder is mounted over the image.
