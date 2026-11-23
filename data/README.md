@@ -1,7 +1,6 @@
 # Data
 
-The files the hands-on sessions start from, which the organisers add before the
-TogetherThon.
+The files the hands-on sessions start from, which the organisers add.
 
 - [`phantoms/`](phantoms): the placenta phantoms of the simulation session, in
   increasing complexity: static with uniform B0; static with B0

@@ -69,9 +69,6 @@ every update. A shell on your computer opens with
 - **Anything else**, including finding a team:
   [Discussions](https://github.com/mcencini/mritogetherthon/discussions).
 
-Online install sessions are held in the week of 23 November; they are announced
-in Discussions.
-
 ## Working as a team
 
 Every team builds the same pipeline during days 1 to 4, one stage a day.
