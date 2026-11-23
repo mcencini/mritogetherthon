@@ -8,8 +8,11 @@ if [ -z "$(ls -A "$HOME" 2>/dev/null)" ]; then
     cp /usr/local/share/mritogetherthon/START_HERE.md "$HOME/" 2>/dev/null
 fi
 # The hands-on material is downloaded on the first start and replaced by the
-# organisers' latest on every one, so that a tutor's change arrives overnight.
+# organisers' latest on every one. The container runs for days, so it also looks
+# for their changes every half hour: a tutor's fix and the answers published after
+# a session arrive without a restart.
 sync-material
+( while sleep "${MATERIAL_SYNC_SECONDS:-1800}"; do sync-material >/dev/null 2>&1; done ) &
 case "${1:-}" in
 "" | -*)
     set -- jupyter lab "$@"

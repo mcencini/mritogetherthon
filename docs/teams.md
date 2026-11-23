@@ -8,12 +8,13 @@ GitHub, and sends it to the organisers at the end of each session.
 ## Two folders
 
 - **`material`** holds the organisers' notebooks and data, a folder for each day.
-  The environment replaces it with their latest on every start, so a tutor's fix
-  arrives overnight. It is read-only, and nothing of yours is in it: do not work
-  there. After each session, its answers appear in `material/answers`.
+  The environment replaces it with their latest at every start and every half
+  hour, so a tutor's fix arrives while you work. It is read-only, and nothing of
+  yours is in it: do not work there. After each session, its answers appear in
+  `material/answers`.
 - **`team`** holds your team's work: its copy of the pipeline repository, with a
   folder for each day. A notebook that arrives in `material` and that neither you
-  nor your team's fork has is copied there at the next start. A notebook you have
+  nor your team's fork has is copied there at the same moments. A notebook you have
   is never touched.
 
 Both are in your home folder on your computer (`mritogetherthon`, or
@@ -22,6 +23,18 @@ update. Packages you install yourself are kept there too, but the pipeline must
 not depend on them: ask for a package in a
 [Discussion](https://github.com/mcencini/mritogetherthon/discussions), so that it
 is added for everyone.
+
+## Refreshing
+
+- **The material, now.** Run `sync-material` in a terminal, instead of waiting for
+  the half hour.
+- **A fixed notebook you have already copied.** Your copy is never replaced. To
+  take the organisers' version, copy it over yours, which loses your changes to it:
+  `cp ~/material/handson/day1/NOTEBOOK.ipynb ~/team/day1/`
+- **The environment itself** (new packages, fixes to the tools): click *Open
+  JupyterLab* on the [setup page](https://mcencini.github.io/mritogetherthon/), or run
+  the launcher again. It downloads a newer environment if there is one and
+  restarts it, keeping your folder.
 
 ## Setting up your team, once
 
