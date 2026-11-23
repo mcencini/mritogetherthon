@@ -177,7 +177,9 @@ RUN apt-get install -y --no-install-recommends \
 # AFNI: the programs QSIPrep's image ships (3dresample, 3dcalc, 3dAutobox and
 # the others its workflows call) and those MRIQC's ships, built from source at
 # QSIPrep's tag, statically, without the GUI, SUMA, Python or R, as MRIQC builds
-# them; and MRIQC's @compute_gcor script.
+# them; and MRIQC's @compute_gcor script. QSIPrep's image also ships 3dSeg and
+# 3dSkullStrip, which AFNI builds only with SUMA and none of the three calls:
+# QSIPrep's skull stripping is niimath's.
 FROM builder AS afni
 ARG AFNI_REF=AFNI_25.2.09
 RUN apt-get install -y --no-install-recommends libexpat1-dev libgsl-dev libqhull-dev \
@@ -186,7 +188,7 @@ RUN apt-get install -y --no-install-recommends libexpat1-dev libgsl-dev libqhull
  && cmake -S /src/afni -B /build -GNinja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
       -DCOMP_GUI=OFF -DCOMP_SUMA=OFF -DCOMP_PYTHON=OFF -DCOMP_RSTATS=OFF -DCOMP_ATLASES=OFF \
       -DBUILD_TESTING=OFF -DAFNI_COMPILER_CHECK=OFF -DREMOVE_BUILD_PARITY_CHECKS=ON \
- && progs="3dAutobox 3dAutomask 3dFWHMx 3dQwarp 3dSeg 3dSkullStrip 3dTcat 3dTshift \
+ && progs="3dAutobox 3dAutomask 3dFWHMx 3dQwarp 3dTcat 3dTshift \
       3dTsplit4D 3dTstat 3dUnifize 3dWarp 3dZeropad 3dcalc 3drefit 3dresample 3dvolreg \
       3dDespike 3dinfo 3dmaskave 3dTnorm 3dToutcount 3dTqual" \
  && ninja -C /build $progs \
