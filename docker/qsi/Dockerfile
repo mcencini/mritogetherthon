@@ -93,8 +93,8 @@ ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
 # QSIPrep and QSIRecon in the environment's own Python, every package already
 # there kept at its version: their caps on numpy, pandas and the others are
 # lifted (overrides.txt). numpy 2 removed np.row_stack, an alias of np.vstack,
-# which both call; the patch leaves their versions as tagged. One of pyAFQ's
-# dependencies (phamt) is compiled.
+# which both call: the installed files are patched, so that the versions stay
+# as tagged. One of pyAFQ's dependencies (phamt) is compiled.
 COPY docker/qsi/overrides.txt /tmp/overrides.txt
 COPY --from=tools /wheels /wheels
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
@@ -102,12 +102,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && pip list --format=freeze > /tmp/constraints.txt \
  && git clone -q --depth 1 --branch "$QSIPREP_REF" https://github.com/PennLINC/qsiprep.git /tmp/qsiprep \
  && git clone -q --depth 1 --branch "$QSIRECON_REF" https://github.com/PennLINC/qsirecon.git /tmp/qsirecon \
- && grep -rl 'np\.row_stack(' /tmp/qsiprep/qsiprep /tmp/qsirecon/qsirecon --include='*.py' \
-      | xargs sed -i 's/np\.row_stack(/np.vstack(/g' \
- && SETUPTOOLS_SCM_PRETEND_VERSION_FOR_QSIPREP="$QSIPREP_REF" \
-    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_QSIRECON="$QSIRECON_REF" \
-    uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
+ && uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
       --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon toml \
+ && SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
+ && grep -rl 'np\.row_stack(' "$SITE/qsiprep" "$SITE/qsirecon" --include='*.py' \
+      | xargs sed -i 's/np\.row_stack(/np.vstack(/g' \
+ && ! grep -rq 'np\.row_stack(' "$SITE/qsiprep" "$SITE/qsirecon" --include='*.py' \
  && apt-get purge -y --auto-remove gcc libc6-dev && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /opt/qsi && cp -r /tmp/qsiprep/scripts /opt/qsi/qsiprep-scripts \
  && cp -r /tmp/qsirecon/scripts /opt/qsi/qsirecon-scripts \
