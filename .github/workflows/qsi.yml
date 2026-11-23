@@ -14,6 +14,10 @@ on:
       - tests/compare_junit.py
       - .github/workflows/qsi.yml
   workflow_dispatch:
+    inputs:
+      arch:
+        description: "Build and test one architecture only (amd64 or arm64), or both"
+        default: both
 
 permissions:
   contents: read
@@ -58,11 +62,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        arch: [amd64, arm64]
         include:
           - arch: amd64
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
+        exclude:
+          - arch: ${{ (inputs.arch == 'amd64' && 'arm64') || (inputs.arch == 'arm64' && 'amd64') || 'none' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     steps:
@@ -197,6 +204,7 @@ jobs:
         run: |
           status=0
           for arch in amd64 arm64; do
+            [ -d junit/junit-ours-$arch ] || { echo "== $arch: not built in this run"; continue; }
             for name in qsiprep qsirecon; do
               echo "== $name, $arch"
               python tests/compare_junit.py junit/junit-ours-$arch/$name.xml junit/junit-official-$name/$name.xml || status=1
