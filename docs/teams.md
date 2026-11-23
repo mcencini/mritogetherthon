@@ -24,6 +24,18 @@ not depend on them: ask for a package in a
 [Discussion](https://github.com/mcencini/mritogetherthon/discussions), so that it
 is added for everyone.
 
+## Refreshing
+
+- **The material, now.** Run `sync-material` in a terminal, instead of waiting for
+  the half hour.
+- **A fixed notebook you have already copied.** Your copy is never replaced. To
+  take the organisers' version, copy it over yours, which loses your changes to it:
+  `cp ~/material/handson/day1/NOTEBOOK.ipynb ~/team/day1/`
+- **The environment itself** (new packages, fixes to the tools): click *Open
+  JupyterLab* on the [setup page](https://mcencini.github.io/mritogetherthon/), or run
+  the launcher again. It downloads a newer environment if there is one and
+  restarts it, keeping your folder.
+
 ## Setting up your team, once
 
 In a JupyterLab terminal, with the number the organisers gave your team (`07`
