@@ -43,14 +43,17 @@ RUN if [ "$TARGETARCH" = arm64 ]; then \
 # Day 3's motion correction, with the tools of the ISMRM MoCo workshop that run
 # on this Python and torch: MERLIN's torch layers, installed without their
 # dependencies, which pin documentation tools, and BART's and ESPIRiT's Python
-# modules, which the workshop's code imports.
+# modules, which the workshop's code imports. bart.py imports wslsupport.py, and
+# medutils looks for the BART toolbox in TOOLBOX_PATH: both are set to the folder
+# of the apt package's binary.
+ENV BART_TOOLBOX_PATH=/usr/bin TOOLBOX_PATH=/usr/bin
 ARG BART_REF=672a840ff88117e09dc9803e0d9c8c5a7f1c42a9
 ARG ESPIRIT_REF=dedabac4e0ecc1b1b94830fa8bd4b32cec36ca9a
 RUN pip install --no-cache-dir --no-deps merlinpy-mri==0.4.0 merlinth-mri==0.4.2 \
  && SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
  && git clone --filter=blob:none https://github.com/mrirecon/bart /tmp/bart \
  && git -C /tmp/bart checkout "$BART_REF" \
- && cp /tmp/bart/python/cfl.py /tmp/bart/python/bart.py "$SITE/" \
+ && cp /tmp/bart/python/cfl.py /tmp/bart/python/bart.py /tmp/bart/python/wslsupport.py "$SITE/" \
  && git clone --filter=blob:none https://github.com/mikgroup/espirit-python /tmp/espirit \
  && git -C /tmp/espirit checkout "$ESPIRIT_REF" \
  && cp /tmp/espirit/espirit.py "$SITE/" \
