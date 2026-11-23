@@ -175,7 +175,7 @@ RUN apt-get install -y --no-install-recommends \
  && mv "UNet-Studio-Data-$UNET_SHA/network" . && rm -rf "UNet-Studio-Data-$UNET_SHA" \
  && curl -fsSLO "https://github.com/frankyeh/DSI-Studio-atlas/archive/$ATLAS_SHA.zip" \
  && unzip -q "$ATLAS_SHA.zip" && rm "$ATLAS_SHA.zip" \
- && rm -rf "DSI-Studio-atlas-$ATLAS_SHA/.git" && mv "DSI-Studio-atlas-$ATLAS_SHA" atlas
+ && rm -rf "atlas-$ATLAS_SHA/.git" && mv "atlas-$ATLAS_SHA" atlas
 
 # AFNI: the programs QSIPrep's image ships (3dresample, 3dcalc, 3dAutobox and
 # the others its workflows call) and those MRIQC's ships, built from source at
