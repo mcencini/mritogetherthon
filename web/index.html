@@ -142,7 +142,7 @@ details > :first-child ~ * { margin-top: 10px; }
       <li><strong>A computer</strong> running macOS (Intel or Apple Silicon), Linux, or Windows 10/11 with WSL2</li>
       <li><strong>Docker</strong>, already installed and running, or installed in step 1: Docker Desktop on macOS and Windows, Docker Engine or Docker Desktop on Linux</li>
       <li><strong>16 GB of memory</strong> recommended, at least 8 GB of it for Docker, and <strong>about 15 GB of free disk</strong> (a 2 GB download, about 7 GB once installed)</li>
-      <li><strong>A <a href="https://github.com/signup">GitHub account</a></strong>, to ask for help and to work with your team</li>
+      <li><strong>A <a href="https://github.com/signup">GitHub account</a></strong>, to ask for help; and for one member of your team, to send the team's work</li>
     </ul>
     <p class="small">Installing Docker needs administrator rights: on a computer managed by your
       institution, ask your IT department early. Docker Desktop is free for personal use, education
@@ -309,12 +309,35 @@ details > :first-child ~ * { margin-top: 10px; }
     </div>
   </section>
 
+  <section class="step">
+    <div class="num">4</div>
+    <div>
+      <h2>Set up your team</h2>
+      <p>The organisers give each team a number (<code>07</code> below). In a JupyterLab terminal,
+        once:</p>
+      <ul>
+        <li>One member with a <a href="https://github.com/signup">GitHub account</a> makes the
+          team's copy of the pipeline: <code>team 07</code>. The first time, it prints a code to
+          enter in your browser. Then invite the others by their GitHub login:
+          <code>team add bob carol</code></li>
+        <li>Each of the others joins it, with the login of the member who made it:
+          <code>team 07 alice</code></li>
+      </ul>
+      <p>Your team's notebooks are then in the <code>team</code> folder, a folder for each day, and
+        the organisers' originals in <code>material</code>. At the end of each session, one member
+        sends the team's work to the organisers: <code>submit</code>.</p>
+      <p class="small">A teammate without a GitHub account can still join and work in their own
+        notebooks. <a href="https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md">Working as a team</a>
+        has the details, including how to use git yourself.</p>
+    </div>
+  </section>
+
   <section>
     <h2>Help and team work</h2>
     <div class="links">
       <a href="https://github.com/mcencini/mritogetherthon/issues/new?template=setup-problem.yml"><strong>Setup problem?</strong>Open an issue with the output of check-setup</a>
       <a href="https://github.com/mcencini/mritogetherthon/discussions"><strong>Discussions</strong>Questions, install help and team chat</a>
-      <a href="https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md"><strong>Working as a team</strong>Git, saving your work and the final pipeline</a>
+      <a href="https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md"><strong>Working as a team</strong>The team's fork, saving your work and sending it</a>
       <a href="https://mritogether.esmrmb.org/26m/programbook"><strong>Program</strong>The five days of the TogetherThon</a>
     </div>
   </section>
