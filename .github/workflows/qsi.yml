@@ -62,13 +62,14 @@ jobs:
 
   # Each tool built on its own runner, in parallel, and cached on its own: a tool
   # that fails rebuilds alone, and one that is unchanged costs a cache download.
-  # (c3d builds on TORTOISE's ITK, so its job builds both.)
+  # (TORTOISE and c3d build on the same ITK, which each job builds or takes from
+  # the other's cache.)
   tools:
     strategy:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
-        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, c3d, dsistudio, afni]
+        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, afni]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 300
     steps:
@@ -89,7 +90,8 @@ jobs:
           target: ${{ matrix.tool }}
           cache-from: |
             type=registry,ref=${{ env.CACHE }}:${{ matrix.tool }}-${{ matrix.arch }}
-            type=gha,scope=qsi-ants-${{ matrix.arch }}
+            type=registry,ref=${{ env.CACHE }}:tortoise-${{ matrix.arch }}
+            type=registry,ref=${{ env.CACHE }}:c3d-${{ matrix.arch }}
           cache-to: type=registry,ref=${{ env.CACHE }}:${{ matrix.tool }}-${{ matrix.arch }},mode=max
 
   image:
@@ -115,7 +117,7 @@ jobs:
         run: |
           {
             echo "from<<EOF"
-            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath c3d dsistudio afni image; do
+            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio afni image; do
               echo "type=registry,ref=$CACHE:$tool-${{ matrix.arch }}"
             done
             echo "EOF"

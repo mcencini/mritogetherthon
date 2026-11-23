@@ -8,12 +8,18 @@ set -eu
 cd /tmp
 for tool in eddy_cpu topup bet flirt fslmaths antsRegistration antsApplyTransforms \
     N4BiasFieldCorrection mrconvert dwidenoise mrdegibbs dwi2tensor dwibiascorrect \
-    dwidenoise2 ss3t_csd_beta1 niimath svht_denoise TORTOISEProcess DIFFPREP DRBUDDI unpile \
+    dwidenoise2 ss3t_csd_beta1 niimath svht_denoise unpile \
     dsi_studio 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask 3dTsplit4D \
     3dvolreg 3dTqual 3dToutcount 3dDespike 3dFWHMx @compute_gcor c3d_affine_tool \
     qsiprep qsirecon mriqc synthstrip; do
     command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
 done
+# TORTOISE is built for amd64 only (see docker/qsi/Dockerfile).
+if [ "$(uname -m)" = x86_64 ]; then
+    for tool in TORTOISEProcess DIFFPREP DRBUDDI; do
+        command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
+    done
+fi
 echo "every tool is on PATH"
 antsRegistration --version | head -1
 mrconvert -version | head -1

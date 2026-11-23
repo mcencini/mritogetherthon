@@ -125,13 +125,13 @@ RUN git clone -q https://github.com/rordenlab/niimath.git /tmp/niimath && cd /tm
  && make -C src test \
  && cp src/svht_denoise /opt/niimath/bin/ && rm -rf /tmp/niimath /tmp/svht
 
-# TORTOISE (DIFFPREP and DRBUDDI), CPU build, on its own ITK 5.3, whose headers,
-# like DSI Studio's, use uint8_t without including <cstdint>, which GCC 14 needs:
+# ITK 5.3, at TORTOISE's commit, for TORTOISE and Convert3D. Its headers, like
+# DSI Studio's, use uint8_t without including <cstdint>, which GCC 14 needs:
 # <stdint.h> is included instead, which ITK's copy of HDF5, compiled as C++98,
-# also accepts.
-FROM builder AS tortoise
+# also accepts. Its libraries are shipped in /src/TORTOISEV4/bin/lib/itk, where
+# QSIPrep's image has them.
+FROM builder AS itk
 ARG ITK_SHA=1fc47c7bec4ee133318c1892b7b745763a17d411
-ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
 RUN apt-get install -y --no-install-recommends \
       libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-regex-dev \
       libboost-system-dev libeigen3-dev libfftw3-dev \
@@ -141,16 +141,30 @@ RUN apt-get install -y --no-install-recommends \
  && cmake -S /tmp/itk -B /tmp/itk-build -GNinja -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
       -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/tortoise-itk \
  && cmake --build /tmp/itk-build && cmake --install /tmp/itk-build && cd / && rm -rf /tmp/itk /tmp/itk-build \
- && git clone -q https://github.com/PennLINC/qsiprep_TORTOISE.git /src/TORTOISEV4 \
- && cd /src/TORTOISEV4 && git checkout -q "$TORTOISE_SHA" && cd TORTOISEV4 \
+ && mkdir -p /src/TORTOISEV4/bin/lib/itk /src/TORTOISEV4/settings \
+ && cp -a /opt/tortoise-itk/lib/*.so* /src/TORTOISEV4/bin/lib/itk/ \
+ && find /src/TORTOISEV4/bin/lib/itk -type f -name '*.so*' -exec patchelf --force-rpath --set-rpath '$ORIGIN' {} \;
+
+# TORTOISE (DIFFPREP and DRBUDDI), CPU build, on amd64 only: its brain masking
+# links a prebuilt x86-64 library (external_libraries/bet/Linux/libbetokan.a),
+# whose source it does not ship. On arm64 the image has ITK's libraries alone.
+FROM itk AS tortoise-amd64
+ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
+RUN export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /signed-char.flag)" \
+ && rm -rf /src/TORTOISEV4/settings \
+ && git clone -q https://github.com/PennLINC/qsiprep_TORTOISE.git /tmp/TORTOISEV4 \
+ && cd /tmp/TORTOISEV4 && git checkout -q "$TORTOISE_SHA" \
+ && cp -a /tmp/TORTOISEV4/. /src/TORTOISEV4/ && cd /src/TORTOISEV4/TORTOISEV4 && rm -rf /tmp/TORTOISEV4 \
  && sed -i '/BrukerBmatToTORTOISEBMTXT/d; /JoanahRegisterAlongAxes/d' CMakeLists.txt \
  && sed -i -E '/^[[:space:]]*(add_executable|target_include_directories|target_link_libraries|target_compile_definitions)\(DRTAMAS/d' CMakeLists.txt \
  && cmake . -DUSECUDA=0 -DQSIPREP=1 -DITK_DIR=/opt/tortoise-itk/lib/cmake/ITK-5.3 -DISDEBUG=0 \
  && cmake --build . -j"$(nproc)" \
- && mkdir -p /src/TORTOISEV4/bin/lib/itk && cp -a /opt/tortoise-itk/lib/*.so* /src/TORTOISEV4/bin/lib/itk/ \
- && find /src/TORTOISEV4/bin/lib/itk -type f -name '*.so*' -exec patchelf --force-rpath --set-rpath '$ORIGIN' {} \; \
  && find /src/TORTOISEV4/bin -maxdepth 1 -type f -executable -exec patchelf --force-rpath --set-rpath '$ORIGIN/lib/itk' {} \; \
  && ! ldd /src/TORTOISEV4/bin/TORTOISEProcess | grep -q 'not found'
+
+FROM itk AS tortoise-arm64
+
+FROM tortoise-${TARGETARCH} AS tortoise
 
 # DSI Studio, with its atlases and UNet-Studio's networks, at QSIPrep's commits.
 # TIPL uses uint8_t without including <cstdint>, which GCC 11, on QSIPrep's
@@ -207,7 +221,7 @@ RUN apt-get install -y --no-install-recommends libexpat1-dev libgsl-dev libqhull
 
 # Convert3D (c3d_affine_tool, which QSIPrep's gradient rotation calls), on the
 # ITK built for TORTOISE, whose libraries the image ships with TORTOISE.
-FROM tortoise AS c3d
+FROM itk AS c3d
 ARG C3D_REF=v1.4.6
 RUN git clone -q --depth 1 --branch "$C3D_REF" https://github.com/pyushkevich/c3d.git /src/c3d \
  && export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /signed-char.flag)" \
@@ -321,7 +335,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && for c in unpile mriqc synthstrip; do command -v "$c" >/dev/null || exit 1; done \
  && test "$(/usr/lib/mrtrix3/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_STABLE_VERSION" \
  && test "$(/opt/mrtrix3-dev/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_DEV_VERSION" \
- && ! ldd /opt/dsi-studio/dsi_studio /src/TORTOISEV4/bin/TORTOISEProcess /opt/3Tissue/bin/ss3t_csd_beta1 \
+ && ! ldd /opt/dsi-studio/dsi_studio $(ls /src/TORTOISEV4/bin/TORTOISEProcess 2>/dev/null) /opt/3Tissue/bin/ss3t_csd_beta1 \
         /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
         /opt/afni/bin/3dresample /opt/afni/bin/3dTqual | grep 'not found'
 
