@@ -145,9 +145,12 @@ RUN apt-get install -y --no-install-recommends \
  && cp -a /opt/tortoise-itk/lib/*.so* /src/TORTOISEV4/bin/lib/itk/ \
  && find /src/TORTOISEV4/bin/lib/itk -type f -name '*.so*' -exec patchelf --force-rpath --set-rpath '$ORIGIN' {} \;
 
-# TORTOISE (DIFFPREP and DRBUDDI), CPU build, on amd64 only: its brain masking
-# links a prebuilt x86-64 library (external_libraries/bet/Linux/libbetokan.a),
-# whose source it does not ship. On arm64 the image has ITK's libraries alone.
+# TORTOISE (DIFFPREP and DRBUDDI), CPU build. Its brain masking links a
+# prebuilt x86-64 archive, external_libraries/bet/Linux/libbetokan.a: FSL's BET2
+# with main() turned into mainokan(). On arm64 the archive is rebuilt from FSL's
+# bet2.cpp (docker/qsi/betokan), against FSL's libraries in /opt/fsl, which the
+# image ships; its output is identical to the original's, voxel for voxel, on
+# the volumes docker/qsi/betokan/test compares.
 FROM itk AS tortoise-amd64
 ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
 RUN export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /signed-char.flag)" \
@@ -163,6 +166,31 @@ RUN export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /
  && ! ldd /src/TORTOISEV4/bin/TORTOISEProcess | grep -q 'not found'
 
 FROM itk AS tortoise-arm64
+ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
+COPY --from=mamba /usr/local/bin/micromamba /usr/local/bin/micromamba
+COPY --from=fsl /opt/fsl /opt/fsl
+COPY docker/qsi/betokan /tmp/betokan
+# fsl-armawrap: the armadillo headers newimage includes, needed only to build.
+RUN micromamba install -y -p /opt/fsl \
+      -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public -c conda-forge fsl-armawrap \
+ && export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /signed-char.flag)" \
+ && rm -rf /src/TORTOISEV4/settings \
+ && git clone -q https://github.com/PennLINC/qsiprep_TORTOISE.git /tmp/TORTOISEV4 \
+ && cd /tmp/TORTOISEV4 && git checkout -q "$TORTOISE_SHA" \
+ && cp -a /tmp/TORTOISEV4/. /src/TORTOISEV4/ && cd /src/TORTOISEV4/TORTOISEV4 && rm -rf /tmp/TORTOISEV4 \
+ && sed -i '/BrukerBmatToTORTOISEBMTXT/d; /JoanahRegisterAlongAxes/d' CMakeLists.txt \
+ && sed -i -E '/^[[:space:]]*(add_executable|target_include_directories|target_link_libraries|target_compile_definitions)\(DRTAMAS/d' CMakeLists.txt \
+ && make -C /tmp/betokan FSLDIR=/opt/fsl CXXFLAGS="-O2 $(cat /signed-char.flag)" \
+ && cp /tmp/betokan/libbetokan.a ../external_libraries/bet/Linux/libbetokan.a \
+ && flags="$(make -s -C /tmp/betokan FSLDIR=/opt/fsl ldflags)" \
+ && sed -i -E "s#external_libraries/bet/Linux/libbetokan\.a +-lz#external_libraries/bet/Linux/libbetokan.a $flags -lz#" CMakeLists.txt \
+ && test "$(grep -c 'libbetokan.a /opt/fsl/lib/libfsl-meshclass.so' CMakeLists.txt)" -ge 3 \
+ && cmake . -DUSECUDA=0 -DQSIPREP=1 -DITK_DIR=/opt/tortoise-itk/lib/cmake/ITK-5.3 -DISDEBUG=0 \
+ && cmake --build . -j"$(nproc)" \
+ && find /src/TORTOISEV4/bin -maxdepth 1 -type f -executable \
+      -exec patchelf --force-rpath --set-rpath '$ORIGIN/lib/itk:/opt/fsl/lib' {} \; \
+ && ! ldd /src/TORTOISEV4/bin/TORTOISEProcess | grep -q 'not found' \
+ && rm -rf /tmp/betokan
 
 FROM tortoise-${TARGETARCH} AS tortoise
 

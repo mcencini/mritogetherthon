@@ -14,13 +14,10 @@ for tool in eddy_cpu topup bet flirt fslmaths antsRegistration antsApplyTransfor
     qsiprep qsirecon mriqc synthstrip; do
     command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
 done
-# TORTOISE is built for amd64 only (see docker/qsi/Dockerfile). Its DIFFPREP is a
-# stage of TORTOISEProcess, not a program of its own.
-if [ "$(uname -m)" = x86_64 ]; then
-    for tool in TORTOISEProcess DRBUDDI CreateMask; do
-        command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
-    done
-fi
+# TORTOISE's DIFFPREP is a stage of TORTOISEProcess, not a program of its own.
+for tool in TORTOISEProcess DRBUDDI CreateMask; do
+    command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
+done
 echo "every tool is on PATH"
 antsRegistration --version | head -1
 mrconvert -version | head -1
