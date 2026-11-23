@@ -140,7 +140,7 @@ RUN apt-get install -y --no-install-recommends \
  && git checkout -q "$ITK_SHA" \
  && cmake -S /tmp/itk -B /tmp/itk-build -GNinja -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
       -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/tortoise-itk \
- && cmake --build /tmp/itk-build && cmake --install /tmp/itk-build && rm -rf /tmp/itk /tmp/itk-build \
+ && cmake --build /tmp/itk-build && cmake --install /tmp/itk-build && cd / && rm -rf /tmp/itk /tmp/itk-build \
  && git clone -q https://github.com/PennLINC/qsiprep_TORTOISE.git /src/TORTOISEV4 \
  && cd /src/TORTOISEV4 && git checkout -q "$TORTOISE_SHA" && cd TORTOISEV4 \
  && sed -i '/BrukerBmatToTORTOISEBMTXT/d; /JoanahRegisterAlongAxes/d' CMakeLists.txt \
