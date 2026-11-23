@@ -1,0 +1,20 @@
+# QSIPrep's and QSIRecon's caps that our environment exceeds, lifted: the
+# environment's own versions win, and the packages' unit tests run on them.
+jinja2
+networkx
+nibabel
+numpy
+pandas
+psutil
+scikit-learn
+nilearn
+niworkflows
+pybids
+dipy
+nipype
+asttokens
+python-dateutil
+# QSIRecon's pins come from pyAFQ 2.0 (DIPY 1.10) and AMICO 2.0.3 (numpy < 2):
+# their current releases match QSIPrep and this environment.
+pyafq>=3
+dmri-amico>=2.2
