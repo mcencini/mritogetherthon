@@ -278,7 +278,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends mrtrix3 libfftw3-double3 libfftw3-single3 \
       libboost-filesystem1.83.0 libboost-iostreams1.83.0 libboost-regex1.83.0 libboost-system1.83.0 \
       libgomp1 libqt5charts5 libqt5gui5t64 libqt5network5t64 libqt5opengl5t64 libqt5sql5t64 \
-      libqt5svg5 libqt5widgets5t64 libgsl28 libqhull-r8.0 libqhull8.0 libexpat1 tcsh \
+      libqt5svg5 libqt5widgets5t64 libglu1-mesa libgsl28 libqhull-r8.0 libqhull8.0 libexpat1 tcsh \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=tools /opt/fsl /opt/fsl
