@@ -1,6 +1,6 @@
 #!/bin/sh
-# QSIPrep's and QSIRecon's unit tests, and the tools they call, inside the :qsi
-# image: docker exec mritogetherthon sh /tests/qsi.sh
+# QSIPrep's, QSIRecon's and MRIQC's unit tests, and the tools they call, inside
+# the :qsi image: docker exec mritogetherthon sh /tests/qsi.sh
 # The tests run from the packages' sources, at the versions installed, patched
 # as the image patches them, with pytest installed in the running container only.
 # With the test data mounted at /data, the tests that need it run too.
@@ -8,7 +8,10 @@ set -eu
 cd /tmp
 for tool in eddy_cpu topup bet flirt fslmaths antsRegistration antsApplyTransforms \
     N4BiasFieldCorrection mrconvert dwidenoise mrdegibbs dwi2tensor dwibiascorrect \
-    dwidenoise2 ss3t_csd_beta1 niimath svht_denoise TORTOISEProcess DIFFPREP DRBUDDI unpile dsi_studio 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask 3dTsplit4D c3d_affine_tool; do
+    dwidenoise2 ss3t_csd_beta1 niimath svht_denoise TORTOISEProcess DIFFPREP DRBUDDI unpile \
+    dsi_studio 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask 3dTsplit4D \
+    3dvolreg 3dTqual 3dToutcount 3dDespike 3dFWHMx @compute_gcor c3d_affine_tool \
+    qsiprep qsirecon mriqc synthstrip; do
     command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
 done
 echo "every tool is on PATH"
@@ -18,13 +21,21 @@ pip install -q --user pytest pytest-xdist pytest-env
 data=""
 [ -d /data ] && data="--data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work" \
     && mkdir -p /tmp/qsi-out /tmp/qsi-work
-for spec in qsiprep:$(python -c 'import qsiprep;print(qsiprep.__version__)') \
-            qsirecon:$(python -c 'import qsirecon;print(qsirecon.__version__)'); do
-    name=${spec%%:*} version=${spec#*:}
+for name in qsiprep qsirecon; do
+    version=$(python -c "import $name; print($name.__version__)")
     rm -rf "$name"
     git clone -q --depth 1 --branch "$version" "https://github.com/PennLINC/$name.git"
     grep -rl 'np\.row_stack(' "$name/$name" --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
     (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider $data \
         --junitxml="${REPORTS:-$HOME}/$name.xml") || status=1
 done
+# MRIQC's, as its CI runs them (without stopping at the first failure), from its
+# sources with the installed _version.py, as its CI's build of the sources writes.
+version=$(python -c 'import mriqc; print(mriqc.__version__)')
+rm -rf mriqc
+git clone -q --depth 1 --branch "$version" https://github.com/nipreps/mriqc.git
+cp "$(python -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_version.py" mriqc/mriqc/
+(cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
+    --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
+    --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
 exit ${status:-0}

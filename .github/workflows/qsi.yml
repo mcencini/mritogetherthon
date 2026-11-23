@@ -1,6 +1,6 @@
-# The environment with QSIPrep and QSIRecon (docker/qsi), built on each
+# The environment with QSIPrep, QSIRecon and MRIQC (docker/qsi), built on each
 # architecture's own runner on top of :latest, tested as the launcher starts it
-# and with the two packages' unit tests, and published from the qsi branch as
+# and with the three packages' unit tests, and published from the qsi branch as
 # ghcr.io/mcencini/mritogetherthon:qsi. :latest is not touched.
 name: QSI image
 
@@ -139,19 +139,20 @@ jobs:
           docker tag mritogetherthon "$IMAGE:qsi-${{ github.sha }}-${{ matrix.arch }}"
           docker push "$IMAGE:qsi-${{ github.sha }}-${{ matrix.arch }}"
 
-  # The same tests, from the same sources, in the official images (amd64 only),
-  # so that a failure the official image shares is not counted against ours.
+  # The same tests, from the same sources, in the official images, so that a
+  # failure the official image shares is not counted against ours: QSIPrep's and
+  # QSIRecon's are published for amd64 only, MRIQC's for both.
   baseline:
     needs: data
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: qsiprep
-            ref: 26.2.0
-          - name: qsirecon
-            ref: 26.0.1
-    runs-on: ubuntu-24.04
+          - {name: qsiprep, org: PennLINC, ref: 26.2.0, arch: amd64}
+          - {name: qsirecon, org: PennLINC, ref: 26.0.1, arch: amd64}
+          - {name: mriqc, org: nipreps, ref: 26.1.1, arch: amd64}
+          - {name: mriqc, org: nipreps, ref: 26.1.1, arch: arm64}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
       - name: Free disk space
@@ -161,27 +162,34 @@ jobs:
           path: data
           key: ${{ needs.data.outputs.key }}
           fail-on-cache-miss: true
-      # The official environments hold neither pip nor, in QSIRecon's, pytest:
-      # pytest is installed on the runner, for the image's Python, and mounted:
-      # pip evaluates markers for the runner's Python, so the backports pytest
-      # needs before 3.11 are named.
-      - name: Unit tests in pennlinc/${{ matrix.name }}:${{ matrix.ref }}
+      # The official environments hold no pip, and QSIRecon's no pytest: pytest
+      # is installed on the runner, for the image's Python, and mounted. pip
+      # evaluates markers for the runner's Python, so the backports pytest needs
+      # before 3.11 are named.
+      - name: Unit tests in ${{ matrix.org }}/${{ matrix.name }}:${{ matrix.ref }}
         run: |
-          image=pennlinc/${{ matrix.name }}:${{ matrix.ref }}
+          image=$(echo "${{ matrix.org }}" | tr A-Z a-z)/${{ matrix.name }}:${{ matrix.ref }}
           docker pull -q "$image"
           py=$(docker run --rm --entrypoint python "$image" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')
           echo "Python $py"
           python3 -m pip install -q --target deps --python-version "$py" --only-binary=:all: \
             pytest pytest-xdist pytest-env toml exceptiongroup tomli
-          git clone -q --depth 1 --branch ${{ matrix.ref }} https://github.com/PennLINC/${{ matrix.name }}.git src
+          git clone -q --depth 1 --branch ${{ matrix.ref }} https://github.com/${{ matrix.org }}/${{ matrix.name }}.git src
           mkdir reports && chmod a+w reports
+          case ${{ matrix.name }} in
+            mriqc) tests='cp "$(python -c "import mriqc, os; print(os.path.dirname(mriqc.__file__))")/_version.py" mriqc/ && \
+                     python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
+                       --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py' ;;
+            *) tests='mkdir -p /tmp/qsi-out /tmp/qsi-work && python -m pytest ${{ matrix.name }}/tests -n auto -q \
+                     -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work' ;;
+          esac
           docker run --rm --entrypoint bash -e PYTHONPATH=/deps \
             -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data:ro" "$image" -c \
-            'cp -r /src /tmp/src && cd /tmp/src && mkdir -p /tmp/qsi-out /tmp/qsi-work && python -m pytest ${{ matrix.name }}/tests -n auto -q -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work --junitxml=/reports/${{ matrix.name }}.xml' || true
+            "cp -r /src /tmp/src && cd /tmp/src && $tests --junitxml=/reports/${{ matrix.name }}.xml" || true
           test -s reports/${{ matrix.name }}.xml
       - uses: actions/upload-artifact@v4
         with:
-          name: junit-official-${{ matrix.name }}
+          name: junit-official-${{ matrix.name }}-${{ matrix.arch }}
           path: reports/*.xml
 
   compare:
@@ -198,9 +206,12 @@ jobs:
           status=0
           for arch in amd64 arm64; do
             [ -d junit/junit-ours-$arch ] || { echo "== $arch: not built in this run"; continue; }
-            for name in qsiprep qsirecon; do
-              echo "== $name, $arch"
-              python tests/compare_junit.py junit/junit-ours-$arch/$name.xml junit/junit-official-$name/$name.xml || status=1
+            for name in qsiprep qsirecon mriqc; do
+              # The official image of the same architecture, or amd64's, the only one published
+              official=junit/junit-official-$name-$arch
+              [ -d "$official" ] || official=junit/junit-official-$name-amd64
+              echo "== $name, ours on $arch, official on ${official##*-}"
+              python tests/compare_junit.py junit/junit-ours-$arch/$name.xml "$official/$name.xml" || status=1
             done
           done
           exit $status
