@@ -19,6 +19,7 @@ for spec in qsiprep:$(python -c 'import qsiprep;print(qsiprep.__version__)') \
     rm -rf "$name"
     git clone -q --depth 1 --branch "$version" "https://github.com/PennLINC/$name.git"
     grep -rl 'np\.row_stack(' "$name/$name" --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
-    (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider) || status=1
+    (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider \
+        --junitxml="${REPORTS:-$HOME}/$name.xml") || status=1
 done
 exit ${status:-0}
