@@ -2,7 +2,7 @@
 # kernel, and a bash shell, holding every tool the hands-on sessions use.
 # Run without a command, it serves JupyterLab on port 8888 from /home/mri,
 # where the launcher mounts the attendee's own folder, so that their notebooks,
-# their clones of the team repositories and their git login outlive the
+# their team's copy of the pipeline repository and their git login outlive the
 # container:
 #
 #   docker run -d --name mritogetherthon -p 127.0.0.1:8888:8888 \
@@ -15,7 +15,7 @@ FROM python:3.12-slim
 ARG JULIA_VERSION=1.12.7
 ARG TARGETARCH
 
-# git and the GitHub CLI for the teams' repositories, BART for reconstruction,
+# git and the GitHub CLI for the team's repository, BART for reconstruction,
 # and what a shell is expected to hold.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -101,11 +101,10 @@ ENV HOME=/home/mri SHELL=/bin/bash
 WORKDIR /home/mri
 
 # Notebooks are committed without their outputs, in every repository, so that
-# the teams' merges compare code rather than plots.
+# the teams' pull requests compare code rather than plots.
 RUN nbstripout --install --system
 
-COPY --chmod=755 docker/check-setup /usr/local/bin/check-setup
-COPY docker/notebooks/ /usr/local/share/mritogetherthon/notebooks/
+COPY --chmod=755 docker/check-setup docker/sync-material docker/github-login docker/team docker/submit /usr/local/bin/
 COPY docker/START_HERE.md /usr/local/share/mritogetherthon/START_HERE.md
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/jupyter_server_config.py /etc/jupyter/jupyter_server_config.py

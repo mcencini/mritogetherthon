@@ -12,8 +12,6 @@ is that environment, and the place to ask for help.
 
 **→ Set it up from the hub page: <https://mcencini.github.io/mritogetherthon/>**
 
-Set it up **before 23 November**, so that a problem can be solved before day 1.
-
 ## What you need
 
 - macOS (Intel or Apple Silicon), Linux, or Windows 10/11 with WSL2
@@ -21,8 +19,8 @@ Set it up **before 23 November**, so that a problem can be solved before day 1.
   macOS and Windows, Docker Engine or Docker Desktop on Linux, with at least
   8 GB of memory for Docker (16 GB in the computer is recommended)
 - about 40 GB of free disk
-- a [GitHub account](https://github.com/signup), to ask for help and to work
-  with your team
+- a [GitHub account](https://github.com/signup), to ask for help; and for one
+  member of your team, to send the team's work
 
 Installing Docker needs administrator rights: on a computer managed by your
 institution, ask your IT department early. On Windows, `wsl --status` in a
@@ -76,9 +74,10 @@ in Discussions.
 
 ## Working as a team
 
-Teams build the pipeline's stages during days 1 to 4, and the stages are joined
-on day 5. [docs/teams.md](docs/teams.md) explains how your work is saved, how
-your team shares it on GitHub, and how it reaches the final pipeline.
+Every team builds the same pipeline during days 1 to 4, one stage a day.
+[docs/teams.md](docs/teams.md) explains how a team sets up its fork of the
+[pipeline repository](https://github.com/mcencini/mritogetherthon-pipeline),
+where its work is saved, and how it sends it to the organisers.
 
 ## What the environment holds
 
@@ -99,9 +98,10 @@ asked for in Discussions and added to the environment, for everyone.
 
 | Path | What it is |
 |---|---|
-| [`docker/`](docker) | The image: `Dockerfile`, the pinned Python (`requirements.in` → `requirements.txt`) and Julia (`julia/Project.toml`, `julia/Manifest.toml`) packages, `check-setup`, and JupyterLab's configuration |
+| [`docker/`](docker) | The image: `Dockerfile`, the pinned Python (`requirements.in` → `requirements.txt`) and Julia (`julia/Project.toml`, `julia/Manifest.toml`) packages, `check-setup`, the attendee's commands `team` and `submit`, `sync-material`, which downloads and updates the hands-on material, and JupyterLab's configuration |
+| [`handson/`](handson), [`data/`](data) | The hands-on material: the notebook of each day, and the phantoms. The environment downloads it, and the tutors change it until the last day |
 | [`web/`](web) | The hub page and its launchers, served by GitHub Pages |
-| [`tests/`](tests) | The launchers against a stand-in for Docker, and a notebook in each kernel inside the image |
+| [`tests/`](tests) | The launchers against a stand-in for Docker, the attendee's commands against a stand-in for GitHub, and a notebook in each kernel inside the image |
 | [`.github/`](.github) | The workflows, and the issue and discussion templates |
 
 - **Image:** every push to `main` builds the image on amd64 and arm64 runners,

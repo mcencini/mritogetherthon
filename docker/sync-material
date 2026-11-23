@@ -1,0 +1,45 @@
+#!/bin/sh
+# Keeps the hands-on material up to date, and gives the team the notebooks it
+# has not got yet.
+#
+# The material, ~/material, is a read-only copy of the organisers' notebooks and
+# data, replaced by their latest on every start. Nothing of the attendee's is
+# in it, so there is nothing to merge. The team's own copy of the pipeline
+# repository, ~/team, is only ever added to: a notebook of the material that is
+# in neither ~/team nor the team's fork is copied there, and one that is there is
+# left as it is. A notebook the fork has is not copied, because the copy would be
+# in the way when `git pull` brings the team's own.
+MATERIAL=${MATERIAL_DIR:-$HOME/material}
+URL=${MATERIAL_URL:-https://github.com/mcencini/mritogetherthon.git}
+TEAMDIR=${TEAM_DIR:-$HOME/team}
+
+# The folder is shared with the computer, whose user ids may differ.
+git config --global --get-all safe.directory | grep -qx '\*' \
+    || git config --global --add safe.directory '*'
+
+if [ ! -d "$MATERIAL/.git" ]; then
+    timeout 120 git clone -q --depth 1 --sparse "$URL" "$MATERIAL" \
+        && git -C "$MATERIAL" sparse-checkout set handson data \
+        || { echo "The hands-on material could not be downloaded from $URL"; exit 1; }
+else
+    timeout 30 git -C "$MATERIAL" fetch -q --depth 1 origin main \
+        && git -C "$MATERIAL" reset -q --hard FETCH_HEAD \
+        || echo "The hands-on material could not be updated: is the computer online?"
+fi
+# Read-only, so that a notebook is not edited where the next update replaces it.
+find "$MATERIAL" -path "$MATERIAL/.git" -prune -o -type f -exec chmod a-w {} + 2>/dev/null
+
+[ -d "$TEAMDIR/.git" ] || exit 0
+timeout 10 git -C "$TEAMDIR" fetch -q origin main 2>/dev/null
+for day in "$MATERIAL"/handson/day*; do
+    [ -d "$day" ] || continue
+    target="$TEAMDIR/$(basename "$day")"
+    for file in "$day"/*; do
+        [ -e "$file" ] || continue
+        [ "$(basename "$file")" = README.md ] && continue
+        name="$(basename "$day")/$(basename "$file")"
+        [ -e "$TEAMDIR/$name" ] && continue
+        git -C "$TEAMDIR" cat-file -e "origin/main:$name" 2>/dev/null && continue
+        mkdir -p "$target" && cp -r "$file" "$target/" && chmod -R u+w "$TEAMDIR/$name"
+    done
+done

@@ -178,22 +178,27 @@ def check_tools():
     report("ok" if "python3" in kernels and has_julia else "fail", "Jupyter kernels", ", ".join(kernels))
 
 
+def check_material():
+    material = os.path.join(HOME, "material")
+    if not os.path.isdir(os.path.join(material, ".git")):
+        report("warn", "Hands-on material", "not downloaded: restart the environment while online")
+    else:
+        _, out = run("git", "-C", material, "log", "-1", "--format=%h, %cd", "--date=short")
+        report("ok", "Hands-on material", out)
+    team = os.path.join(HOME, "team")
+    code, out = run("git", "-C", team, "config", "--get", "mritogether.team")
+    if code == 0 and out:
+        report("ok", "Your team", out)
+    else:
+        report("warn", "Your team", "not set up: run  team NN  (the member who makes the fork) or  team NN LOGIN")
+
+
 def check_git():
-    code, out = run("git", "config", "--global", "user.name")
-    if code == 0 and out:
-        report("ok", "git: your name", out)
-    else:
-        report("warn", "git: your name", 'not set: run  git config --global user.name "Your Name"')
-    code, out = run("git", "config", "--global", "user.email")
-    if code == 0 and out:
-        report("ok", "git: your email", out)
-    else:
-        report("warn", "git: your email", "not set: run  git config --global user.email you@example.org")
     code, _ = run("gh", "auth", "status")
     if code == 0:
         report("ok", "GitHub login")
     else:
-        report("warn", "GitHub login", "not logged in: run  gh auth login  and choose HTTPS and the browser")
+        report("warn", "GitHub login", "needed to make or push to your team's fork: `team` and `submit` ask for it")
 
 
 def main():
@@ -201,6 +206,7 @@ def main():
     check_computer()
     check_python()
     check_tools()
+    check_material()
     check_git()
     print()
     if failed:

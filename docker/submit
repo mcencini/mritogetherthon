@@ -1,0 +1,50 @@
+#!/bin/bash
+# submit: send your team's work to the organisers, as a pull request from your
+# team's fork to your team's branch of the pipeline repository. Run it by one
+# member of the team, at the end of each session and whenever something works.
+#
+# It is only a shortcut for what git does, so that whoever uses git can do the
+# same by hand, as often as they like:
+#
+#   git add -A && git commit -m ... && git push
+#
+# and the pull request from the fork's main to the branch team-NN.
+set -eu
+TEAMDIR=${TEAM_DIR:-$HOME/team}
+UPSTREAM=${PIPELINE_REPO:-mcencini/mritogetherthon-pipeline}
+GITHUB=${GITHUB_URL:-https://github.com}
+
+cd "$TEAMDIR" 2>/dev/null || { echo "Set up your team first: team NN"; exit 1; }
+number=$(git config --get mritogether.team || true)
+[ -n "$number" ] || { echo "Set up your team first: team NN"; exit 1; }
+
+github-login
+slug=$(git remote get-url origin)
+slug=${slug%.git}
+owner=$(dirname "${slug#"$GITHUB"/}")
+
+# Each notebook with results is also sent as a page, for the jury to read.
+if command -v jupyter >/dev/null 2>&1; then
+    git ls-files -co --exclude-standard '*.ipynb' | grep -v '\.ipynb_checkpoints' | while read -r notebook; do
+        python3 -c "import json,sys; sys.exit(not any(c.get('outputs') for c in json.load(open(sys.argv[1]))['cells'] if c['cell_type'] == 'code'))" "$notebook" || continue
+        page="${notebook%.ipynb}.html"
+        if [ ! -f "$page" ] || [ "$notebook" -nt "$page" ]; then
+            jupyter nbconvert --to html --log-level WARN "$notebook" || echo "No page could be made of $notebook"
+        fi
+    done
+fi
+
+git add -A
+git diff --cached --quiet || git commit -q -m "Team $number: $(date -u '+%Y-%m-%d %H:%M') UTC"
+git push -q origin main \
+    || { echo "A teammate pushed first: run git pull in ~/team, then submit again."; exit 1; }
+
+url=$(gh pr list --repo "$UPSTREAM" --state open --base "team-$number" \
+        --json url,headRefName,headRepositoryOwner \
+        --jq ".[] | select(.headRefName == \"main\" and .headRepositoryOwner.login == \"$owner\") | .url")
+if [ -z "$url" ]; then
+    url=$(gh pr create --repo "$UPSTREAM" --head "$owner:main" --base "team-$number" \
+            --title "Team $number" --body "The work of team $number.")
+fi
+echo
+echo "Sent: $url"

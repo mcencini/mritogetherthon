@@ -7,10 +7,9 @@
 if [ -z "$(ls -A "$HOME" 2>/dev/null)" ]; then
     cp /usr/local/share/mritogetherthon/START_HERE.md "$HOME/" 2>/dev/null
 fi
-# The session notebooks the image carries are put in the home's notebooks folder,
-# those the attendee already has left as they are, edits included.
-mkdir -p "$HOME/notebooks" 2>/dev/null
-cp -n /usr/local/share/mritogetherthon/notebooks/* "$HOME/notebooks/" 2>/dev/null
+# The hands-on material is downloaded on the first start and replaced by the
+# organisers' latest on every one, so that a tutor's change arrives overnight.
+sync-material
 case "${1:-}" in
 "" | -*)
     set -- jupyter lab "$@"
