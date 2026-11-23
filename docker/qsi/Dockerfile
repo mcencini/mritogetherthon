@@ -125,14 +125,15 @@ RUN git clone -q https://github.com/rordenlab/niimath.git /tmp/niimath && cd /tm
  && make -C src test \
  && cp src/svht_denoise /opt/niimath/bin/ && rm -rf /tmp/niimath /tmp/svht
 
-# TORTOISE (DIFFPREP and DRBUDDI), CPU build, on its own ITK 5.3.
+# TORTOISE (DIFFPREP and DRBUDDI), CPU build, on its own ITK 5.3, whose headers,
+# like DSI Studio's, use uint8_t without including <cstdint>, which GCC 14 needs.
 FROM builder AS tortoise
 ARG ITK_SHA=1fc47c7bec4ee133318c1892b7b745763a17d411
 ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
 RUN apt-get install -y --no-install-recommends \
       libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-regex-dev \
       libboost-system-dev libeigen3-dev libfftw3-dev \
- && export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="$(cat /signed-char.flag)" \
+ && export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include cstdint $(cat /signed-char.flag)" \
  && git clone -q https://github.com/InsightSoftwareConsortium/ITK.git /tmp/itk && cd /tmp/itk \
  && git checkout -q "$ITK_SHA" \
  && cmake -S /tmp/itk -B /tmp/itk-build -GNinja -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
@@ -207,7 +208,7 @@ RUN apt-get install -y --no-install-recommends libexpat1-dev libgsl-dev libqhull
 FROM tortoise AS c3d
 ARG C3D_REF=v1.4.6
 RUN git clone -q --depth 1 --branch "$C3D_REF" https://github.com/pyushkevich/c3d.git /src/c3d \
- && export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="$(cat /signed-char.flag)" \
+ && export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include cstdint $(cat /signed-char.flag)" \
  && cmake -S /src/c3d -B /tmp/c3d-build -GNinja -DCMAKE_BUILD_TYPE=Release \
       -DITK_DIR=/opt/tortoise-itk/lib/cmake/ITK-5.3 -DCONVERT3D_USE_ITK_REMOTE_MODULES=OFF \
       -DCMAKE_INSTALL_PREFIX=/opt/c3d \
