@@ -149,13 +149,17 @@ def check_python():
         nufft = mrinufft.get_operator("finufft")(trajectory, shape=(32, 32), n_coils=1, density=False)
         kspace = nufft.op((rng.standard_normal((32, 32)) + 1j * rng.standard_normal((32, 32))).astype(np.complex64))
         assert nufft.adj_op(kspace).shape == (32, 32)
+        import bart
+        import medutils  # prints a warning when it cannot find the BART toolbox
+
+        assert bart.bart(1, "phantom -x 16").shape == (16, 16)
         data = (rng.standard_normal((8, 8)) + 1j * rng.standard_normal((8, 8))).astype(np.complex64)
         with tempfile.TemporaryDirectory() as folder:
             cfl.writecfl(f"{folder}/x", data)
             assert np.allclose(cfl.readcfl(f"{folder}/x"), data)
-        report("ok", "Day 3: a NUFFT runs, and BART files are read and written")
+        report("ok", "Day 3: a NUFFT runs, and BART runs from Python and its files are read and written")
     except Exception as error:  # noqa: BLE001
-        report("fail", "Day 3: a NUFFT runs, and BART files are read and written", f"{type(error).__name__}: {error}")
+        report("fail", "Day 3: a NUFFT runs, and BART runs from Python and its files are read and written", f"{type(error).__name__}: {error}")
 
 
 def check_tools():
