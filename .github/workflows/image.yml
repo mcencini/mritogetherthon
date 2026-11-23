@@ -11,6 +11,7 @@ on:
       - docker/**
       - tests/smoke.py
       - tests/notebook.py
+      - handson/**
       - .dockerignore
       - .github/workflows/image.yml
   workflow_dispatch:
@@ -47,15 +48,15 @@ jobs:
           mkdir work
           docker run -d --name mritogetherthon -p 127.0.0.1:8899:8888 \
             --user "$(id -u):$(id -g)" -e JUPYTER_TOKEN=smoke \
-            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" mritogetherthon
+            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/handson:/handson:ro" mritogetherthon
           for i in $(seq 60); do curl -fs -o /dev/null http://127.0.0.1:8899/api && break; sleep 2; done
           curl -fs "http://127.0.0.1:8899/api/kernelspecs?token=smoke" | python3 -m json.tool
       - name: Check the setup
         run: docker exec mritogetherthon check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
-      - name: Run the protocol-optimisation notebook
-        run: docker exec mritogetherthon python /tests/notebook.py
+      - name: Run the day 1 notebook
+        run: docker exec mritogetherthon python /tests/notebook.py /handson/day1/placenta_b_optimisation.ipynb
       - name: Keep the work in the attendee's folder
         run: test -f work/smoke/python.ipynb && test -f work/smoke/julia.ipynb
       - name: Logs

@@ -6,20 +6,18 @@ there, through every restart and update.
 
 1. **Check your setup.** Open a terminal (*File → New → Terminal*) and run
    `check-setup`. Every line should be ✅.
-2. **Log in to GitHub, once,** in the same terminal:
+2. **Set up your team, once.** In the same terminal, with the number the
+   organisers gave your team:
+   - the member who has a [GitHub account](https://github.com/signup) and makes
+     the team's copy runs `team 07`, then `team add LOGIN ...` with their
+     teammates' GitHub logins;
+   - the others run `team 07 LOGIN`, with that member's GitHub login.
+3. **Work in the notebooks** of the `team` folder, one folder a day. The
+   organisers' originals are in `material`, updated every time you start the
+   environment: do not work there.
+4. **Send your work.** One member of your team runs `submit` at the end of each
+   session.
 
-   ```bash
-   git config --global user.name "Your Name"
-   git config --global user.email you@example.org
-   gh auth login --hostname github.com --git-protocol https --web
-   gh auth setup-git
-   ```
-
-3. **Find the session notebooks** in the `notebooks` folder here, for example
-   `placenta_b_optimisation.ipynb`, the protocol-optimisation hack of day 4.
-4. **Join a team** and clone its repository, as
-   [Working as a team](https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md)
-   explains.
-
-Help: <https://github.com/mcencini/mritogetherthon/discussions>.
+[Working as a team](https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md)
+explains it all. Help: <https://github.com/mcencini/mritogetherthon/discussions>.
 You can delete this file: it comes back only if this folder is empty.

@@ -1,0 +1,74 @@
+#!/bin/sh
+# Your team's fork of the pipeline repository, on GitHub, is where the team
+# keeps its work. One member makes it, once; the others join it. The fork is
+# cloned to ~/team, with a folder for each day, holding that day's notebook.
+#
+#   team 07            you make team 07's fork
+#   team add bob carol you invite teammates, by GitHub login, to work on it too
+#   team 07 alice      you join team 07, whose fork alice made
+#
+# Joining needs no GitHub account: the fork is public, so you can copy it and
+# work in your own notebooks. To push to it, log in to GitHub, be invited by the
+# member who made it, and run the same command again.
+TEAMDIR=${TEAM_DIR:-$HOME/team}
+UPSTREAM=${PIPELINE_REPO:-mcencini/mritogetherthon-pipeline}
+GITHUB=${GITHUB_URL:-https://github.com}
+NAME=${UPSTREAM#*/}
+
+usage() {
+    echo "team NN             make team NN's fork, if you are the first of your team"
+    echo "team add LOGIN ...  invite teammates, by their GitHub login"
+    echo "team NN LOGIN       join team NN, whose fork LOGIN made"
+    exit 2
+}
+
+# Copy a fork to ~/team, unless it is there already.
+copy_fork() {
+    if [ -d "$TEAMDIR/.git" ]; then
+        echo "~/team is there already: it follows $(git -C "$TEAMDIR" remote get-url origin)"
+    else
+        git clone -q "$GITHUB/$1/$NAME.git" "$TEAMDIR" \
+            || { echo "No fork of the pipeline repository was found for $1"; exit 1; }
+    fi
+    git -C "$TEAMDIR" config mritogether.team "$2"
+    sync-material
+}
+
+case "$1" in
+add)
+    shift
+    [ $# -gt 0 ] || usage
+    [ -d "$TEAMDIR/.git" ] || { echo "Make your team's fork first: team NN"; exit 1; }
+    slug=$(git -C "$TEAMDIR" remote get-url origin)
+    slug=${slug%.git}
+    slug=${slug#"$GITHUB"/}
+    github-login || exit 1
+    for user in "$@"; do
+        gh api -X PUT "repos/$slug/collaborators/$user" -f permission=push >/dev/null \
+            && echo "Invited $user: they accept the invitation in their email or on github.com/$slug"
+    done
+    ;;
+[0-9][0-9])
+    if [ -n "$2" ]; then
+        copy_fork "$2" "$1"
+        if gh auth status >/dev/null 2>&1; then
+            gh auth setup-git
+            invitation=$(gh api user/repository_invitations --jq ".[] | select(.repository.full_name == \"$2/$NAME\") | .id")
+            [ -z "$invitation" ] || gh api -X PATCH "user/repository_invitations/$invitation" >/dev/null
+        else
+            echo "You follow team $1's fork without an account. To push to it, run gh auth login, ask for an invitation, and run this again."
+        fi
+    else
+        github-login || exit 1
+        login=$(gh api user --jq .login)
+        gh repo fork "$UPSTREAM" --clone=false || true
+        copy_fork "$login" "$1"
+        # The fork then has the starting notebooks, for the others to follow.
+        git -C "$TEAMDIR" add -A
+        git -C "$TEAMDIR" diff --cached --quiet || git -C "$TEAMDIR" commit -q -m "Team $1: the notebooks to start from"
+        git -C "$TEAMDIR" push -q origin main
+        echo "Team $1: your fork is $GITHUB/$login/$NAME. Invite your teammates with: team add LOGIN ..."
+    fi
+    ;;
+*) usage ;;
+esac

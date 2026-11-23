@@ -1,12 +1,14 @@
-"""Run the protocol-optimisation notebook the image carries, inside the image.
+"""Run the protocol-optimisation notebook of day 1 as an attendee opens it.
 
-Usage: ``docker exec mritogetherthon python /tests/notebook.py``. The notebook
-is the copy the entry point put in ~/notebooks, executed there, so that the
-check covers what an attendee opens: ED_MRI and TADRED installed, their results
-folder writable by the attendee's user, and every cell running through to the
+Usage: ``docker exec mritogetherthon python /tests/notebook.py [notebook]``.
+The notebook, by default the one in the material the entry point downloaded, is
+copied to the attendee's folder and executed there, as an attendee's copy is, so
+that the check covers ED_MRI and TADRED being installed, their results folder
+being writable by the attendee's user, and every cell running through to the
 end. Exits 1 when the notebook is missing or a cell fails.
 """
 
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -14,9 +16,12 @@ from pathlib import Path
 import nbformat
 from nbclient import NotebookClient
 
-path = Path.home() / "notebooks" / "placenta_b_optimisation.ipynb"
-if not path.is_file():
-    sys.exit(f"{path} is not there: the entry point should have copied it")
+source = Path(sys.argv[1] if len(sys.argv) > 1 else Path.home() / "material/handson/day1/placenta_b_optimisation.ipynb")
+if not source.is_file():
+    sys.exit(f"{source} is not there")
+path = Path.home() / "smoke" / source.name
+path.parent.mkdir(exist_ok=True)
+shutil.copy(source, path)
 
 notebook = nbformat.read(path, as_version=4)
 started = time.time()
