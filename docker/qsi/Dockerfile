@@ -242,6 +242,8 @@ ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     PATH="$PATH:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
     AFNI_IMSAVE_WARNINGS=NO \
+    MRTRIX3_STABLE_HOME=/usr/lib/mrtrix3 MRTRIX3_STABLE_VERSION=3.0.4 \
+    MRTRIX3_DEV_HOME=/opt/mrtrix3-dev MRTRIX3_DEV_VERSION=3.0.8-2071-gb98b54e9 \
     IS_DOCKER_8395080871=1
 
 # QSIPrep and QSIRecon in the environment's own Python, every package already
@@ -268,12 +270,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt /wheels \
  && python -c "import qsiprep, qsirecon; assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; assert qsirecon.__version__ == '$QSIRECON_REF', qsirecon.__version__" \
  && command -v unpile \
+ && test "$(/usr/lib/mrtrix3/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_STABLE_VERSION" \
+ && test "$(/opt/mrtrix3-dev/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_DEV_VERSION" \
  && ! ldd /opt/dsi-studio/dsi_studio /src/TORTOISEV4/bin/TORTOISEProcess /opt/3Tissue/bin/ss3t_csd_beta1 \
         /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
         /opt/afni/bin/3dresample | grep 'not found'
 
 # The templates both prefetch, and QSIRecon's atlases at the path it looks for
 # them, outside /home/mri, where the attendee's folder is mounted over the image.
+# TemplateFlow's and DIPY's caches stay writable, as in QSIPrep's image, so that
+# a template not prefetched can still be downloaded.
 RUN python /opt/qsi/qsiprep-scripts/fetch_templates.py --tf-dir "$TEMPLATEFLOW_HOME" \
  && python /opt/qsi/qsirecon-scripts/fetch_templates.py --tf-dir "$TEMPLATEFLOW_HOME" \
  && mkdir -p /home/qsirecon/.cache/qsirecon && cd /tmp \
@@ -285,6 +291,6 @@ RUN python /opt/qsi/qsiprep-scripts/fetch_templates.py --tf-dir "$TEMPLATEFLOW_H
  && tar -xzf b.tgz && mv qsirecon_atlases /home/qsirecon/.cache/qsirecon/QSIReconAtlases \
  && rm -rf a.tgz b.tgz ._* \
  && mkdir -p "$DIPY_HOME" && (cd /opt/qsi/qsirecon-scripts && python set_up_amico.py) \
- && chmod -R a+rX /opt/templateflow /opt/dipy /home/qsirecon
+ && chmod -R a+rwX /opt/templateflow /opt/dipy && chmod -R a+rX /home/qsirecon
 
 USER mri

@@ -23,9 +23,16 @@ def outcomes(path):
 
 
 ours, base = outcomes(sys.argv[1]), outcomes(sys.argv[2])
-count = lambda d, v: sum(1 for x in d.values() if (x == v) if v in ("passed", "skipped") else x not in ("passed", "skipped"))
-print(f"ours:     {count(ours, 'passed')} passed, {count(ours, 'failed')} failed or errors, {count(ours, 'skipped')} skipped")
-print(f"official: {count(base, 'passed')} passed, {count(base, 'failed')} failed or errors, {count(base, 'skipped')} skipped")
+
+
+def summary(results):
+    passed = sum(v == "passed" for v in results.values())
+    skipped = sum(v == "skipped" for v in results.values())
+    return f"{passed} passed, {len(results) - passed - skipped} failed or errors, {skipped} skipped"
+
+
+print(f"ours:     {summary(ours)}")
+print(f"official: {summary(base)}")
 worse = {k: v for k, v in ours.items() if v not in ("passed", "skipped") and base.get(k) == "passed"}
 better = [k for k, v in base.items() if v not in ("passed", "skipped") and ours.get(k) == "passed"]
 print(f"pass in the official image only: {len(worse)}")
