@@ -23,7 +23,38 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  # QSIPrep's test data, as its own CI gets it: two small real datasets, and the
+  # subjects its simulator, TRXScan, generates. Cached by their versions.
+  data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+    steps:
+      - name: QSIPrep's sources
+        run: git clone -q --depth 1 --branch 26.2.0 https://github.com/PennLINC/qsiprep.git qsiprep
+      - id: key
+        run: echo "key=qsi-data-${{ hashFiles('qsiprep/.circleci/data_versions.txt', 'qsiprep/.circleci/trxscan_fixtures.txt') }}" >> "$GITHUB_OUTPUT"
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: ${{ steps.key.outputs.key }}
+      - name: Download and generate
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -a; . qsiprep/.circleci/data_versions.txt; set +a
+          mkdir -p data/forrest_gump data/nibs
+          curl -fsSL --retry 5 "$FORREST_GUMP_URL" | tar -xJ -C data/forrest_gump
+          curl -fsSL --retry 5 "$NIBS_URL" | tar -xJ -C data/nibs
+          python3 -m venv venv && . venv/bin/activate
+          pip install -q "trxscan[trx]==$(sed -n 's/^TRXSCAN_VERSION=//p' qsiprep/.circleci/trxscan_fixtures.txt)"
+          trxscan-fetch sub-60501
+          (cd qsiprep && python -m qsiprep.tests.trxscan_fixtures --generate "$GITHUB_WORKSPACE/data")
+          du -sh data/*
+
   image:
+    needs: data
     strategy:
       fail-fast: false
       matrix:
@@ -72,12 +103,17 @@ jobs:
             type=gha,scope=qsi-tools-${{ matrix.arch }}
             type=gha,scope=qsi-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=qsi-${{ matrix.arch }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
       - name: Start it as the launcher does
         run: |
           mkdir work
           docker run -d --name mritogetherthon -p 127.0.0.1:8899:8888 \
             --user "$(id -u):$(id -g)" -e JUPYTER_TOKEN=smoke \
-            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" mritogetherthon
+            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/data:/data:ro" mritogetherthon
           for i in $(seq 60); do curl -fs -o /dev/null http://127.0.0.1:8899/api && break; sleep 2; done
       - name: Check the setup
         run: docker exec mritogetherthon check-setup
@@ -106,6 +142,7 @@ jobs:
   # The same tests, from the same sources, in the official images (amd64 only),
   # so that a failure the official image shares is not counted against ours.
   baseline:
+    needs: data
     strategy:
       fail-fast: false
       matrix:
@@ -119,6 +156,11 @@ jobs:
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
       # The official environments hold neither pip nor, in QSIRecon's, pytest:
       # pytest is installed on the runner, for the image's Python, and mounted:
       # pip evaluates markers for the runner's Python, so the backports pytest
@@ -134,8 +176,8 @@ jobs:
           git clone -q --depth 1 --branch ${{ matrix.ref }} https://github.com/PennLINC/${{ matrix.name }}.git src
           mkdir reports && chmod a+w reports
           docker run --rm --entrypoint bash -e PYTHONPATH=/deps \
-            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/reports:/reports" "$image" -c \
-            'cp -r /src /tmp/src && cd /tmp/src && python -m pytest ${{ matrix.name }}/tests -n auto -q -p no:cacheprovider --junitxml=/reports/${{ matrix.name }}.xml' || true
+            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data:ro" "$image" -c \
+            'cp -r /src /tmp/src && cd /tmp/src && mkdir -p /tmp/qsi-out /tmp/qsi-work && python -m pytest ${{ matrix.name }}/tests -n auto -q -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work --junitxml=/reports/${{ matrix.name }}.xml' || true
           test -s reports/${{ matrix.name }}.xml
       - uses: actions/upload-artifact@v4
         with:
