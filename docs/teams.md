@@ -10,7 +10,8 @@ organisers.
 - **`material`** holds the organisers' notebooks and data, a folder for each
   day. The environment downloads it on its first start and replaces it with the
   latest on every start, so that a tutor's fix arrives overnight. It is
-  read-only, and nothing of yours is in it: do not work there.
+  read-only, and nothing of yours is in it: do not work there. After each
+  session, the organisers' answers to its notebook appear in `material/answers`.
 - **`team`** holds your team's work: its copy of the
   [pipeline repository](https://github.com/mcencini/mritogetherthon-pipeline),
   with a folder for each day. At every start, a notebook that has arrived in

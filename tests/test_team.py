@@ -55,7 +55,7 @@ def repository(path, files):
 def world(tmp_path):
     material = repository(tmp_path / "material", {
         "handson/day1/notebook.ipynb": "{}\n", "handson/day1/README.md": "tutors' note\n",
-        "data/phantoms/p1.phantom": "p\n", "docker/Dockerfile": "not material\n"})
+        "data/phantoms/p1.phantom": "p\n", "answers/day1/notebook.ipynb": "{}\n", "docker/Dockerfile": "not material\n"})
     pipeline = repository(tmp_path / "pipeline", {"stages/sequence/README.md": "contract\n"})
 
     bin = tmp_path / "bin"
@@ -131,6 +131,8 @@ def test_the_first_member_forks_and_gets_the_notebooks(world):
     assert (team / "day1/notebook.ipynb").exists() and not (team / "day1/README.md").exists()
     assert os.access(team / "day1/notebook.ipynb", os.W_OK)
     assert (team / "stages/sequence/README.md").exists()
+    assert (home / "material/answers/day1/notebook.ipynb").exists()  # in the material
+    assert not (team / "answers").exists()                            # but not in the team's folder
     # A plain push goes to the fork.
     (team / "day1/notebook.ipynb").write_text('{"alice": 1}\n')
     git("add", "-A", cwd=team)

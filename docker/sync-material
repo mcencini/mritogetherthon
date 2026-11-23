@@ -3,9 +3,10 @@
 # has not got yet.
 #
 # The material, ~/material, is a read-only copy of the organisers' notebooks and
-# data, replaced by their latest on every start. Nothing of the attendee's is
-# in it, so there is nothing to merge. The team's own copy of the pipeline
-# repository, ~/team, is only ever added to: a notebook of the material that is
+# data, and of the answers they publish after each session, replaced by their
+# latest on every start. Nothing of the attendee's is in it, so there is nothing
+# to merge. The team's own copy of the pipeline repository, ~/team, is only ever
+# added to, and never with the answers: a notebook of the material that is
 # in neither ~/team nor the team's fork is copied there, and one that is there is
 # left as it is. A notebook the fork has is not copied, because the copy would be
 # in the way when `git pull` brings the team's own.
@@ -19,7 +20,7 @@ git config --global --get-all safe.directory | grep -qx '\*' \
 
 if [ ! -d "$MATERIAL/.git" ]; then
     timeout 120 git clone -q --depth 1 --sparse "$URL" "$MATERIAL" \
-        && git -C "$MATERIAL" sparse-checkout set handson data \
+        && git -C "$MATERIAL" sparse-checkout set handson data answers \
         || { echo "The hands-on material could not be downloaded from $URL"; exit 1; }
 else
     timeout 30 git -C "$MATERIAL" fetch -q --depth 1 origin main \
