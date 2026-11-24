@@ -89,7 +89,10 @@ for p in DTIProcess/bin/dtiprocess DTIProcess/bin/dtiestim DTIProcess/bin/dtiave
          niral_utilities/bin/ImageMath niral_utilities/bin/CropDTI \
          ANTs/bin/ANTS ANTs/bin/WarpImageMultiTransform ANTs/bin/WarpTensorImageMultiTransform; do
     rc=0; out=$("$DTIPLAYGROUNDTOOLS/$p" --help 2>&1) || rc=$?
-    if [ ! -x "$DTIPLAYGROUNDTOOLS/$p" ] || [ $rc -ge 126 ] && [ $rc -ne 134 ] \
+    # Cannot execute (126), not found (127), or killed by SIGILL, SIGBUS, SIGFPE
+    # or SIGSEGV; any other status is the program's own answer.
+    case $rc in 126|127|132|135|136|139) rc=broken ;; esac
+    if [ ! -x "$DTIPLAYGROUNDTOOLS/$p" ] || [ "$rc" = broken ] \
         || echo "$out" | grep -qiE 'error while loading shared libraries|exec format error|cannot execute|illegal instruction|segmentation fault'; then
         broken="${broken:-} $p"
     fi
