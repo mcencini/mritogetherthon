@@ -51,7 +51,8 @@ for path in root.rglob("*.py"):
         path.write_text(text.replace("from distutils.spawn import find_executable",
                                      "from shutil import which as find_executable"))
         patched.append(path)
-stale = re.compile(r"\bdistutils\b|\bimport imp\b|\bimp\.")
+# Imports and calls only: comments may still name distutils.
+stale = re.compile(r"^\s*(from|import)\s+(distutils|imp)\b|\bimp\.", re.MULTILINE)
 left = [p for p in root.rglob("*.py") if stale.search(p.read_text())]
 assert not left, f"still importing distutils or imp: {left}"
 print("patched", len(patched), "files")
