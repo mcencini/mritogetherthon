@@ -1,6 +1,3 @@
 # Tests that pass in the official images and are expected to fail in :qsi,
 # each with the reason. tests/compare_junit.py reports them without counting them.
-
-# FreeSurfer's SynthSeg (TensorFlow and its models) is not in the image.
-# QSIPrep runs it only without --sloppy; its integration tests mock it.
-qsiprep.tests.test_interfaces_freesurfer::test_synthseg_interface
+# None at present.

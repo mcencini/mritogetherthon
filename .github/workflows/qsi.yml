@@ -45,11 +45,10 @@ jobs:
       markers: ${{ steps.markers.outputs.markers }}
     steps:
       # QSIPrep's integration tests, as its CI runs them, one job each. Left
-      # out: trxscan_synb0 (SynB0 is not in the image) and trxscan_gre_unpile,
-      # which QSIPrep's CI leaves out too.
+      # out: trxscan_gre_unpile, which QSIPrep's CI leaves out too.
       - id: markers
         run: |
-          echo 'markers=["trxscan_rpe_topup", "trxscan_rpe_drbuddi", "trxscan_epi_topup", "trxscan_epi_drbuddi", "trxscan_phasediff", "trxscan_gnl", "trxscan_motion", "trxscan_offsets", "trxscan_diffprep", "trxscan_unpile"]' >> "$GITHUB_OUTPUT"
+          echo 'markers=["trxscan_rpe_topup", "trxscan_rpe_drbuddi", "trxscan_epi_topup", "trxscan_epi_drbuddi", "trxscan_phasediff", "trxscan_gnl", "trxscan_motion", "trxscan_offsets", "trxscan_diffprep", "trxscan_synb0", "trxscan_unpile"]' >> "$GITHUB_OUTPUT"
       - name: QSIPrep's sources
         run: git clone -q --depth 1 --branch 26.2.0 https://github.com/PennLINC/qsiprep.git qsiprep
       - id: key
@@ -81,7 +80,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
-        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, afni]
+        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, afni, freesurfer, synb0]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 300
     steps:
@@ -129,7 +128,7 @@ jobs:
         run: |
           {
             echo "from<<EOF"
-            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio afni image; do
+            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio afni freesurfer synb0 image; do
               echo "type=registry,ref=$CACHE:$tool-${{ matrix.arch }}"
             done
             echo "EOF"

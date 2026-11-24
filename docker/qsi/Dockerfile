@@ -260,9 +260,43 @@ RUN git clone -q --depth 1 --branch "$C3D_REF" https://github.com/pyushkevich/c3
  && find /opt/c3d/bin -type f -exec patchelf --force-rpath --set-rpath /src/TORTOISEV4/bin/lib/itk {} \; \
  && rm -rf /src/c3d /tmp/c3d-build
 
-# SynthStrip's models, which MRIQC and QSIPrep run on torch: data files, the
-# same for both processors, from the image MRIQC's own takes them from.
-FROM --platform=linux/amd64 freesurfer/synthstrip@sha256:f19578e5f033f2c707fa66efc8b3e11440569facb46e904b45fd52f1a12beb8b AS synthstrip
+# FreeSurfer 8.2.0's SynthStrip and SynthSeg, the scripts and models QSIPrep's
+# image takes from FreeSurfer 8.2.0 (and MRIQC SynthStrip's model): Python and
+# data, the same for both processors, each checked against its SHA-256
+# (freesurfer-files.txt). They run on the environment's own CPU torch and
+# TensorFlow.
+FROM debian:trixie-slim AS freesurfer
+COPY docker/qsi/freesurfer-files.txt /tmp/
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+ && grep -v '^#' /tmp/freesurfer-files.txt | while read -r sha url dest; do \
+      [ -n "$sha" ] || continue; \
+      mkdir -p "$(dirname "/opt/freesurfer/$dest")" \
+      && curl -fsSL --retry 5 -o "/opt/freesurfer/$dest" "$url" \
+      && echo "$sha  /opt/freesurfer/$dest" | sha256sum -c --quiet - || exit 1; \
+    done \
+ && chmod 755 /opt/freesurfer/bin/* && ls -R /opt/freesurfer
+
+# SynB0-DISCO, as QSIPrep's image takes it from its v3.1 image: the U-Net's
+# five folds, its atlases and its inference code, from the release's commit,
+# with the licence QSIPrep ships it under.
+FROM debian:trixie-slim AS synb0
+ARG SYNB0_SHA=1a5ee6f28d737d8f7781b50a89bff268e1f6591b
+ARG QSIPREP_BUILD_SHA=fba3f92f9d59bbc4bef59248880cd778d82fa516
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+ && base=https://raw.githubusercontent.com/MASILab/Synb0-DISCO/$SYNB0_SHA \
+ && mkdir -p /opt/synb0/dual_channel_unet /opt/synb0/atlases && cd /opt/synb0 \
+ && for f in inference.py model.py util.py synb0.cnf; do \
+      curl -fsSL --retry 5 -o "$f" "$base/src/$f" || exit 1; done \
+ && for fold in 1:97 2:98 3:90 4:90 5:88; do \
+      name="num_fold_${fold%:*}_total_folds_5_seed_1_num_epochs_100_lr_0.0001_betas_(0.9, 0.999)_weight_decay_1e-05_num_epoch_${fold#*:}.pth"; \
+      curl -fsSL --retry 5 -o "dual_channel_unet/$name" "$base/src/train_lin/$(echo "$name" | sed 's/ /%20/g')" || exit 1; done \
+ && for f in mni_icbm152_t1_tal_nlin_asym_09c mni_icbm152_t1_tal_nlin_asym_09c_2_5 \
+        mni_icbm152_t1_tal_nlin_asym_09c_mask mni_icbm152_t1_tal_nlin_asym_09c_mask_2_5; do \
+      curl -fsSL --retry 5 -o "atlases/$f.nii.gz" "$base/atlases/$f.nii.gz" || exit 1; done \
+ && curl -fsSL --retry 5 -o synb0-license-ccby4.0.txt \
+      "https://raw.githubusercontent.com/PennLINC/qsiprep_build/$QSIPREP_BUILD_SHA/scripts/synb0_license.txt" \
+ && echo "65bec26fa77459f7f17b96d1bb59ab0cd7a460d0036a9ef5deef994715447362  synb0-license-ccby4.0.txt" | sha256sum -c - \
+ && chmod +x inference.py && ls -lR /opt/synb0
 
 # MRIQC's wheel. MRIQC 26 declares Python 3.13, while this environment is on
 # 3.12, which its code runs on: the wheel is built from its tag with the floor
@@ -291,13 +325,8 @@ COPY --from=tortoise /src/TORTOISEV4/settings /src/TORTOISEV4/settings
 COPY --from=dsistudio /opt/dsi-studio /opt/dsi-studio
 COPY --from=afni /opt/afni /opt/afni
 COPY --from=c3d /opt/c3d /opt/c3d
-COPY --from=synthstrip /freesurfer/models/synthstrip.1.pt /freesurfer/models/synthstrip.nocsf.1.pt \
-     /opt/freesurfer/models/
-# FreeSurfer 8.2.0's mri_synthstrip, which QSIPrep's image takes from FreeSurfer
-# 8.2.0: a Python script, run on the environment's own (CPU) torch.
-ADD --chmod=755 --checksum=sha256:bbc2ff8f8779862039401b05d5cd6039fb4f3583e0032a793ac9adb3f4521590 \
-    https://raw.githubusercontent.com/freesurfer/freesurfer/v8.2.0/mri_synthstrip/mri_synthstrip \
-    /opt/freesurfer/bin/mri_synthstrip
+COPY --from=freesurfer /opt/freesurfer /opt/freesurfer
+COPY --from=synb0 /opt/synb0 /opt/synb0
 
 FROM ${BASE}
 ARG QSIPREP_REF
@@ -331,6 +360,7 @@ COPY --from=tools /opt/dsi-studio /opt/dsi-studio
 COPY --from=tools /opt/afni /opt/afni
 COPY --from=tools /opt/c3d /opt/c3d
 COPY --from=tools /opt/freesurfer /opt/freesurfer
+COPY --from=tools /opt/synb0 /opt/synb0
 # FSL's and ANTs' own folders go after the environment's, so that their Python
 # and libraries never shadow the notebooks'. FSL's commands are in its bin:
 # the wrappers its packages make in share/fsl/bin need post-link scripts, which
@@ -339,7 +369,8 @@ ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
     PATH="$PATH:/opt/freesurfer/bin:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
-    FREESURFER_HOME=/opt/freesurfer \
+    FREESURFER_HOME=/opt/freesurfer SYNB0_ATLASES=/opt/synb0/atlases \
+    TF_USE_LEGACY_KERAS=1 TF_ENABLE_ONEDNN_OPTS=0 \
     AFNI_IMSAVE_WARNINGS=NO \
     MRTRIX3_STABLE_HOME=/usr/lib/mrtrix3 MRTRIX3_STABLE_VERSION=3.0.4 \
     MRTRIX3_DEV_HOME=/opt/mrtrix3-dev MRTRIX3_DEV_VERSION=3.0.8-2071-gb98b54e9 \
@@ -350,7 +381,11 @@ ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
 # are lifted (overrides.txt). numpy 2 removed np.row_stack, an alias of
 # np.vstack, which QSIPrep and QSIRecon call: the installed files are patched, so
 # that the versions stay as tagged. One of pyAFQ's dependencies (phamt) and
-# surfa, which mri_synthstrip imports, at QSIPrep's version, are compiled.
+# surfa, which FreeSurfer's scripts import, at QSIPrep's version, are compiled.
+# TensorFlow, for SynthSeg, is its CPU-only build: tensorflow-cpu on amd64, and
+# tensorflow on arm64, which has no other; tf-keras, which mri_synthseg's Keras
+# 2 code needs (TF_USE_LEGACY_KERAS), asks for tensorflow by name, which on
+# amd64 is overridden away so that the CUDA build is not pulled in.
 COPY docker/qsi/overrides.txt /tmp/overrides.txt
 COPY --from=tools /wheels /wheels
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
@@ -360,6 +395,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && git clone -q --depth 1 --branch "$QSIRECON_REF" https://github.com/PennLINC/qsirecon.git /tmp/qsirecon \
  && uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
       --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon /wheels/mriqc-*.whl toml surfa==0.6.3 \
+      "tensorflow-cpu==2.21.0; platform_machine == 'x86_64'" "tensorflow==2.21.0; platform_machine == 'aarch64'" tf-keras==2.21.0 \
  && SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
  && grep -rl 'np\.row_stack(' "$SITE/qsiprep" "$SITE/qsirecon" --include='*.py' \
       | xargs sed -i 's/np\.row_stack(/np.vstack(/g' \
@@ -368,11 +404,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && mkdir -p /opt/qsi && cp -r /tmp/qsiprep/scripts /opt/qsi/qsiprep-scripts \
  && cp -r /tmp/qsirecon/scripts /opt/qsi/qsirecon-scripts \
  && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt /wheels \
- && python -c "import qsiprep, qsirecon, mriqc, surfa; \
+ && python -c "import qsiprep, qsirecon, mriqc, surfa, tensorflow, tf_keras; \
       assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; \
       assert qsirecon.__version__ == '$QSIRECON_REF', qsirecon.__version__; \
-      assert mriqc.__version__ == '$MRIQC_REF', mriqc.__version__" \
- && for c in unpile mriqc synthstrip mri_synthstrip; do command -v "$c" >/dev/null || exit 1; done \
+      assert mriqc.__version__ == '$MRIQC_REF', mriqc.__version__; \
+      assert not tensorflow.test.is_built_with_cuda()" \
+ && for c in unpile mriqc synthstrip mri_synthstrip mri_synthseg; do command -v "$c" >/dev/null || exit 1; done \
  && test "$(/usr/lib/mrtrix3/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_STABLE_VERSION" \
  && test "$(/opt/mrtrix3-dev/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_DEV_VERSION" \
  && ! ldd /opt/dsi-studio/dsi_studio $(ls /src/TORTOISEV4/bin/TORTOISEProcess 2>/dev/null) /opt/3Tissue/bin/ss3t_csd_beta1 \
@@ -400,6 +437,6 @@ RUN python /opt/qsi/qsiprep-scripts/fetch_templates.py --tf-dir "$TEMPLATEFLOW_H
  && tar -xzf b.tgz && mv qsirecon_atlases /home/qsirecon/.cache/qsirecon/QSIReconAtlases \
  && rm -rf a.tgz b.tgz ._* \
  && mkdir -p "$DIPY_HOME" && (cd /opt/qsi/qsirecon-scripts && python set_up_amico.py) \
- && chmod -R a+rwX /opt/templateflow /opt/dipy && chmod -R a+rX /home/qsirecon /opt/freesurfer
+ && chmod -R a+rwX /opt/templateflow /opt/dipy && chmod -R a+rX /home/qsirecon /opt/freesurfer /opt/synb0
 
 USER mri

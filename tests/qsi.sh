@@ -14,7 +14,7 @@ for tool in eddy_cpu topup bet flirt fslmaths antsRegistration antsApplyTransfor
     dwidenoise2 ss3t_csd_beta1 niimath svht_denoise unpile \
     dsi_studio 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask 3dTsplit4D \
     3dvolreg 3dTqual 3dToutcount 3dDespike 3dFWHMx @compute_gcor c3d_affine_tool \
-    qsiprep qsirecon mriqc synthstrip mri_synthstrip; do
+    qsiprep qsirecon mriqc synthstrip mri_synthstrip mri_synthseg; do
     command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
 done
 # TORTOISE's DIFFPREP is a stage of TORTOISEProcess, not a program of its own.
