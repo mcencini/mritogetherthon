@@ -344,7 +344,8 @@ jobs:
               official=junit/junit-official-$name-$arch
               [ -d "$official" ] || official=junit/junit-official-$name-amd64
               echo "== $name, ours on $arch, official on ${official##*-}"
-              compare --ours junit/junit-ours-$arch/$name.xml --official "$official/$name.xml"
+              # (ours may split a package's tests in several reports: qsiprep-synthseg.xml)
+              compare --ours junit/junit-ours-$arch/$name*.xml --official "$official/$name.xml"
             done
             # They score themselves against the simulation's truth: each must pass
             # in ours. The official image's outcomes are shown alongside.

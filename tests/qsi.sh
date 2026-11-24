@@ -67,14 +67,21 @@ pip install -q --user pytest pytest-xdist pytest-env
 data=""
 [ -d /data ] && data="--data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work" \
     && mkdir -p /tmp/qsi-out /tmp/qsi-work
+# SynthSeg's test runs alone, after the others: it peaks near 10 GB, which does
+# not fit beside three other workers on a 16 GB runner. Its report is
+# qsiprep-synthseg.xml, read with qsiprep.xml.
+synthseg=qsiprep/tests/test_interfaces_freesurfer.py::test_synthseg_interface
 for name in qsiprep qsirecon; do
     version=$(python -c "import $name; print($name.__version__)")
     rm -rf "$name"
     git clone -q --depth 1 --branch "$version" "https://github.com/PennLINC/$name.git"
     grep -rl 'np\.row_stack(' "$name/$name" --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
-    (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider $data \
+    alone=""; [ "$name" = qsiprep ] && alone="--deselect $synthseg"
+    (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider $data $alone \
         --junitxml="${REPORTS:-$HOME}/$name.xml") || status=1
 done
+(cd qsiprep && python -m pytest "$synthseg" -q -p no:cacheprovider $data \
+    --junitxml="${REPORTS:-$HOME}/qsiprep-synthseg.xml") || status=1
 # MRIQC's, as its CI runs them (without stopping at the first failure), from its
 # sources with the installed _version.py, as its CI's build of the sources writes
 # (python -I, so that the installed MRIQC is imported, not the sources' copy).
