@@ -18,7 +18,7 @@ is that environment, and the place to ask for help.
 - [Docker](https://docs.docker.com/get-started/get-docker/): Docker Desktop on
   macOS and Windows, Docker Engine or Docker Desktop on Linux, with at least
   8 GB of memory for Docker (16 GB in the computer is recommended)
-- about 15 GB of free disk (the download is about 2 GB, and the environment takes about 7 GB once installed)
+- about 25 GB of free disk (the download is about 5 to 6 GB, and the environment takes about 14 to 16 GB once installed)
 - a [GitHub account](https://github.com/signup), to ask for help; and for one
   member of your team, to send the team's work
 
@@ -101,11 +101,14 @@ asked for in Discussions and added to the environment, for everyone.
 | [`tests/`](tests) | The launchers against a stand-in for Docker, the attendee's commands against a stand-in for GitHub, and a notebook in each kernel inside the image |
 | [`.github/`](.github) | The workflows, and the issue and discussion templates |
 
-- **Image:** every push to `main` builds the image on amd64 and arm64 runners,
-  starts it as the launcher does, runs `check-setup` and a notebook in each
-  kernel, and publishes `ghcr.io/mcencini/mritogetherthon:latest`. Make the
-  package public in its settings once, so that the launcher downloads it
-  without a login.
+- **Image:** every push to `main` builds the base environment on amd64 and
+  arm64 runners, starts it as the launcher does, runs `check-setup` and a
+  notebook in each kernel, and publishes it as
+  `ghcr.io/mcencini/mritogetherthon:base`. The QSI workflow then adds QSIPrep,
+  QSIRecon and MRIQC (`docker/qsi`), runs their tests in it and in the official
+  images, and publishes the result as `:latest`, the image the launcher starts,
+  when no test fails in it only. Make the package public in its settings once,
+  so that the launcher downloads it without a login.
 - **Python packages:** edit `docker/requirements.in`, then
   `uv pip compile --universal --python-version 3.12 docker/requirements.in -o docker/requirements.txt`.
 - **Julia packages:** `julia --project=docker/julia -e 'using Pkg; Pkg.add("...")'`,
