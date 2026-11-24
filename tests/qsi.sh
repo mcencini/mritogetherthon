@@ -49,6 +49,20 @@ dice = 2 * (a & b).sum() / (a.sum() + b.sum())
 print(f'mri_synthstrip on the MNI template: Dice {dice:.3f} with its brain mask')
 assert dice > 0.85
 EOF
+# A dataset stored under a folder named after a BIDS datatype (here motion,
+# which pybids 0.22 knows and the official images' 0.15 does not) keeps its
+# diffusion images, as in the official images.
+python - <<'EOF' || broken="${broken:-} pybids"
+import json, os, tempfile
+import bids
+root = os.path.join(tempfile.mkdtemp(), 'motion', 'ds')
+os.makedirs(f'{root}/sub-01/dwi')
+json.dump({'Name': 'x', 'BIDSVersion': '1.8.0'}, open(f'{root}/dataset_description.json', 'w'))
+open(f'{root}/sub-01/dwi/sub-01_dwi.nii.gz', 'w').close()
+found = bids.BIDSLayout(root, validate=False).get(subject='01', datatype='dwi', suffix='dwi', extension='.nii.gz')
+print(f'pybids {bids.__version__}, dataset under motion/: {len(found)} diffusion image')
+assert len(found) == 1
+EOF
 pip install -q --user pytest pytest-xdist pytest-env
 data=""
 [ -d /data ] && data="--data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work" \

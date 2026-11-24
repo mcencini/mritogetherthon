@@ -445,6 +445,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
         /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
         /opt/afni/bin/3dresample /opt/afni/bin/3dTqual | grep 'not found'
 
+# pybids reads a file's datatype from the folder that holds it only, as the
+# official images' pybids does for every dataset laid out as BIDS says
+# (pybids-datatype-folder.py).
+COPY docker/qsi/pybids-datatype-folder.py /tmp/
+RUN python /tmp/pybids-datatype-folder.py && rm /tmp/pybids-datatype-folder.py
+
 # The templates the three prefetch, and QSIRecon's atlases at the path it looks
 # for them, outside /home/mri, where the attendee's folder is mounted over the
 # image. TemplateFlow's and DIPY's caches stay writable, as in QSIPrep's image,
