@@ -8,7 +8,7 @@
 # is unsigned on Linux arm64 and signed on x86-64, which these tools assume, as
 # MRIQC's image (github.com/nipreps/mriqc, Dockerfile.base) does.
 
-ARG BASE=ghcr.io/mcencini/mritogetherthon:latest
+ARG BASE=ghcr.io/mcencini/mritogetherthon:base
 ARG QSIPREP_REF=26.2.0
 ARG QSIRECON_REF=26.0.1
 ARG MRIQC_REF=26.1.1

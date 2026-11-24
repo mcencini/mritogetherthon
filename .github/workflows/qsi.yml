@@ -1,23 +1,20 @@
-# The environment with QSIPrep, QSIRecon and MRIQC (docker/qsi), built on each
-# architecture's own runner on top of :latest, tested as the launcher starts it
-# with the three packages' unit tests and QSIPrep's integration tests, each
-# compared with the same tests in the official images, and published from the
-# qsi branch as ghcr.io/mcencini/mritogetherthon:qsi when no test fails in ours
-# only (tests/compare_junit.py). :latest is not touched.
+# The full environment: QSIPrep, QSIRecon and MRIQC (docker/qsi) on the base
+# image (image.yml), built on each architecture's own runner, tested as the
+# launcher starts it, with the three packages' unit tests, QSIPrep's and
+# QSIRecon's integration tests and MRIQC's pipeline test, each compared with the
+# same tests in the official images (tests/compare_junit.py). Published when no
+# test fails in ours only: from main, once image.yml has published :base, as
+# ghcr.io/mcencini/mritogetherthon:latest, the image the launchers start; from
+# the qsi branch, as :qsi.
 name: QSI image
 
 on:
   push:
     branches: [qsi]
-  pull_request:
-    paths:
-      - docker/qsi/**
-      - tests/qsi.sh
-      - tests/compare_junit.py
-      - tests/qsi-expected.txt
-      - tests/qsi-integration.sh
-      - tests/mriqc-pipeline.sh
-      - .github/workflows/qsi.yml
+  workflow_run:
+    workflows: [Image]
+    branches: [main]
+    types: [completed]
   workflow_dispatch:
     inputs:
       arch:
@@ -42,6 +39,7 @@ jobs:
   # they run in parallel); and MRIQC's circle-tests dataset, which its CI runs
   # the pipeline on. Cached by their versions.
   data:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     outputs:
@@ -92,6 +90,7 @@ jobs:
   # (TORTOISE and c3d build on the same ITK, which each job builds or takes from
   # the other's cache.)
   tools:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -149,6 +148,15 @@ jobs:
             done
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+      # On :base, which main publishes; before main first publishes it, on
+      # :latest, which until then is that same base environment.
+      - id: base
+        run: |
+          if docker buildx imagetools inspect "$IMAGE:base" >/dev/null 2>&1; then
+            echo "base=$IMAGE:base"
+          else
+            echo "base=$IMAGE:latest"
+          fi | tee -a "$GITHUB_OUTPUT"
       - name: Build
         uses: docker/build-push-action@v6
         with:
@@ -156,6 +164,7 @@ jobs:
           file: docker/qsi/Dockerfile
           tags: mritogetherthon
           load: true
+          build-args: BASE=${{ steps.base.outputs.base }}
           cache-from: ${{ steps.caches.outputs.from }}
           cache-to: type=registry,ref=${{ env.CACHE }}:image-${{ matrix.arch }},mode=max
       - uses: actions/cache/restore@v4
@@ -168,12 +177,14 @@ jobs:
           mkdir work
           docker run -d --name mritogetherthon -p 127.0.0.1:8899:8888 \
             --user "$(id -u):$(id -g)" -e JUPYTER_TOKEN=smoke \
-            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/data:/data" mritogetherthon
+            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/handson:/handson:ro" -v "$PWD/data:/data" mritogetherthon
           for i in $(seq 60); do curl -fs -o /dev/null http://127.0.0.1:8899/api && break; sleep 2; done
       - name: Check the setup
         run: docker exec mritogetherthon check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
+      - name: Run the day 1 notebook
+        run: docker exec mritogetherthon python /tests/notebook.py /handson/day1/placenta_b_optimisation.ipynb
       # Exit code 2 is tests that fail, and 3 programs missing: the compare job
       # judges both, so that the integration tests run whatever they are.
       - name: The tools, and QSIPrep's, QSIRecon's and MRIQC's unit tests
@@ -493,7 +504,7 @@ jobs:
         run: find junit -name truth_score.json | sort | while read -r f; do echo "== $f"; jq -c . "$f"; done
 
   publish:
-    if: github.event_name == 'push' && needs.compare.result == 'success'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_run') && needs.compare.result == 'success'
     needs: compare
     runs-on: ubuntu-latest
     steps:
@@ -504,7 +515,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish one image for both architectures
         run: |
-          for tag in qsi "qsi-${{ github.sha }}"; do
+          if [ "${{ github.event_name }}" = workflow_run ]; then tags="latest ${{ github.sha }}"
+          else tags="qsi qsi-${{ github.sha }}"; fi
+          for tag in $tags; do
             docker buildx imagetools create -t "$IMAGE:$tag" \
               "$CACHE:qsi-${{ github.sha }}-amd64" "$CACHE:qsi-${{ github.sha }}-arm64"
           done
