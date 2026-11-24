@@ -1,0 +1,1 @@
+<?xml version="1.0"?><testsuites><testsuite name="mriqc-pipeline"><testcase classname="mriqc.pipeline.bold" name="participant_and_group"/><testcase classname="mriqc.pipeline.bold" name="outputs"/><testcase classname="mriqc.pipeline.bold" name="iqms"/></testsuite></testsuites>

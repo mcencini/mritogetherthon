@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="1110.921" timestamp="2026-11-24T18:27:16.483900+00:00" hostname="2c5c82e686b5"><testcase classname="qsirecon.tests.test_cli" name="test_pyafq_recon_external_trk" time="1095.088" /></testsuite></testsuites>

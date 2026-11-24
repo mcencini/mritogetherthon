@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="98.114" timestamp="2026-11-24T18:07:12.029777+00:00" hostname="75284921ae13"><testcase classname="qsirecon.tests.test_cli" name="test_amico_noddi" time="83.483" /></testsuite></testsuites>

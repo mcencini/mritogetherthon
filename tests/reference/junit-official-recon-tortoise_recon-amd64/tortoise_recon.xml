@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="186.252" timestamp="2026-11-24T18:23:16.942007+00:00" hostname="32342056c057"><testcase classname="qsirecon.tests.test_cli" name="test_tortoise_recon" time="175.743" /></testsuite></testsuites>
