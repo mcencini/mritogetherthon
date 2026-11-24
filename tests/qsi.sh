@@ -33,10 +33,12 @@ done
 echo "$missing" | tr ' ' '\n' | sed '/^$/d' > "${REPORTS:-$HOME}/missing.txt"
 if [ -n "$missing" ]; then echo "missing:$missing"; else echo "every tool is on PATH"; fi
 # Every MRtrix3 Python command (stable, dev, 3Tissue) starts: those of 3.0.4
-# and its forks import modules Python 3.12 removed.
+# and its forks import modules Python 3.12 removed. (Those that do not use
+# MRtrix3's library, such as blend, have no -help.)
 for dir in /usr/lib/mrtrix3/bin /opt/mrtrix3-dev/bin /opt/3Tissue/bin; do
     for f in "$dir"/*; do
         head -n 1 "$f" 2>/dev/null | grep -q '^#!.*python' || continue
+        grep -q 'import mrtrix3' "$f" || continue
         "$f" -help >/dev/null 2>&1 || broken="${broken:-} $f"
     done
 done
@@ -80,6 +82,13 @@ data=""
 # not fit beside three other workers on a 16 GB runner. Its report is
 # qsiprep-synthseg.xml, read with qsiprep.xml.
 synthseg=qsiprep/tests/test_interfaces_freesurfer.py::test_synthseg_interface
+# QSIRecon's RSI port is checked against ABCD's original script, which QSIRecon
+# keeps unmodified and runs as the reference: that script imports
+# scipy.special.sph_harm, which SciPy 1.17 removed for sph_harm_y. These two
+# tests run apart, with sph_harm given back to that script as SciPy defines the
+# change, sph_harm(m, n, phi, theta) = sph_harm_y(n, m, theta, phi); QSIRecon's
+# own port calls sph_harm_y. Their report is qsirecon-rsi.xml.
+rsi="qsirecon/tests/test_rsi.py::test_rsi_matches_upstream qsirecon/tests/test_rsi.py::test_rsi_matches_upstream_custom_settings"
 for name in qsiprep qsirecon; do
     # The tag, or the commit a development version names (+g<commit>).
     ref=$(python -c "import re, $name; v = $name.__version__; m = re.search(r'\+g([0-9a-f]{7,})', v); print(m.group(1) if m else v)")
@@ -87,11 +96,20 @@ for name in qsiprep qsirecon; do
     git clone -q --filter=blob:none "https://github.com/PennLINC/$name.git" && git -C "$name" checkout -q "$ref"
     grep -rl 'np\.row_stack(' "$name/$name" --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
     alone=""; [ "$name" = qsiprep ] && alone="--deselect $synthseg"
+    [ "$name" = qsirecon ] && for t in $rsi; do alone="$alone --deselect $t"; done
     (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider $data $alone \
         --junitxml="${REPORTS:-$HOME}/$name.xml") || status=1
 done
 (cd qsiprep && python -m pytest "$synthseg" -q -p no:cacheprovider $data \
     --junitxml="${REPORTS:-$HOME}/qsiprep-synthseg.xml") || status=1
+shim=$(mktemp -d)
+cat > "$shim/sitecustomize.py" <<'EOF'
+import scipy.special
+if not hasattr(scipy.special, 'sph_harm'):
+    scipy.special.sph_harm = lambda m, n, phi, theta: scipy.special.sph_harm_y(n, m, theta, phi)
+EOF
+(cd qsirecon && PYTHONPATH="$shim${PYTHONPATH:+:$PYTHONPATH}" python -m pytest $rsi -q -p no:cacheprovider $data \
+    --junitxml="${REPORTS:-$HOME}/qsirecon-rsi.xml") || status=1
 # MRIQC's, as its CI runs them (without stopping at the first failure), from its
 # sources with the installed _version.py, as its CI's build of the sources writes
 # (python -I, so that the installed MRIQC is imported, not the sources' copy).
