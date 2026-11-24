@@ -38,6 +38,23 @@ assert s.count('-DBUILD_ALL_ANTS_APPS:BOOL=ON') == 1
 s = s.replace('-DBUILD_ALL_ANTS_APPS:BOOL=ON', '-DBUILD_ALL_ANTS_APPS:BOOL=OFF -DANTS_BUILD_ANTS:BOOL=ON '
               '-DANTS_BUILD_WarpImageMultiTransform:BOOL=ON -DANTS_BUILD_WarpTensorImageMultiTransform:BOOL=ON')
 open(p, 'w').write(s)
+# The projects the superbuild takes from moving branches, pinned to their
+# commits of 24 November 2026.
+pins = {
+    'DTI-Reg': ('set( ${proj}_GIT_TAG master )', 'set( ${proj}_GIT_TAG 35e654d2cbea7e8974f406b73918f49c43214528 )'),
+    'DTIProcess': ('set( ${proj}_GIT_TAG release )', 'set( ${proj}_GIT_TAG 9dd496335d1c5e0e546afeb3a226841209cb5979 )'),
+    'ITKTransformTools': ('set( ${proj}_GIT_TAG release )', 'set( ${proj}_GIT_TAG 94da3c797bfddf9910aca00dfcd77052fbb75281 )'),
+    'ResampleDTIlogEuclidean': ('set( ${proj}_GIT_TAG release )', 'set( ${proj}_GIT_TAG dd883469c2fb7bbe0c28b9d9c0c2754dd5d9faec )'),
+    'niral_utilities': ('set( ${proj}_GIT_TAG release )', 'set( ${proj}_GIT_TAG 04edf6230d9e634ec63dce3eacbf55f1f0683f1c )'),
+    'teem': ('set(${proj}_GIT_TAG master)', 'set(${proj}_GIT_TAG e387840ee6ecbef0657283e14d37779432ecf9cc)'),
+    'JPEG': ('set(${proj}_GIT_TAG BRAINSTools_CompilerCleanup)', 'set(${proj}_GIT_TAG 43056c8b105e3b3f5fff0da8c1b48e58a99c1725)'),
+    'BatchMake': ('GIT_TAG release', 'GIT_TAG 1afeb15fa5bd18be6e4a56f4349eb6368a91441e'),
+}
+for name, (old, new) in pins.items():
+    p = 'src/SuperBuild/External_%s.cmake' % name
+    s = open(p).read()
+    assert s.count(old) == 1, (name, old)
+    open(p, 'w').write(s.replace(old, new))
 p = 'src/DTIPlaygroundTools.cmake'
 s = open(p).read()
 s, n = re.subn(r'install ?\((PROGRAMS|DIRECTORY) \$\{(MriWatcher|Trafic|AtlasWerks)_[A-Z_]+\}.*?\)\s*\n', '', s, flags=re.S)
