@@ -473,7 +473,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt /wheels \
  && python -c "import qsiprep, qsirecon, mriqc, surfa, tensorflow, tf_keras; \
       assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; \
-      assert qsirecon.__version__.endswith('+g' + '$QSIRECON_REF'[:7]), qsirecon.__version__; \
+      assert '$QSIRECON_REF'.startswith(qsirecon.__version__.partition('+g')[2] or '-'), qsirecon.__version__; \
       assert mriqc.__version__ == '$MRIQC_REF', mriqc.__version__; \
       assert not tensorflow.test.is_built_with_cuda()" \
  && for c in unpile mriqc synthstrip mri_synthstrip mri_synthseg trxviz-cli; do command -v "$c" >/dev/null || exit 1; done \
