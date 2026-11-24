@@ -16,6 +16,7 @@ on:
       - tests/compare_junit.py
       - tests/qsi-expected.txt
       - tests/qsi-integration.sh
+      - tests/mriqc-pipeline.sh
       - .github/workflows/qsi.yml
   workflow_dispatch:
     inputs:
@@ -38,7 +39,8 @@ jobs:
   # QSIPrep's test data, as its own CI gets it: two small real datasets, and the
   # subjects its simulator, TRXScan, generates; and QSIRecon's six datasets, as
   # its CI gets them before any test runs (its tests' own download races when
-  # they run in parallel). Cached by their versions.
+  # they run in parallel); and MRIQC's circle-tests dataset, which its CI runs
+  # the pipeline on. Cached by their versions.
   data:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -59,7 +61,7 @@ jobs:
           git clone -q --depth 1 --branch 26.2.0 https://github.com/PennLINC/qsiprep.git qsiprep
           git clone -q --depth 1 --branch 26.0.1 https://github.com/PennLINC/qsirecon.git qsirecon
       - id: key
-        run: echo "key=qsi-data-${{ hashFiles('qsiprep/.circleci/data_versions.txt', 'qsiprep/.circleci/trxscan_fixtures.txt', 'qsirecon/qsirecon/tests/integration_test_data.py') }}" >> "$GITHUB_OUTPUT"
+        run: echo "key=qsi-data-${{ hashFiles('qsiprep/.circleci/data_versions.txt', 'qsiprep/.circleci/trxscan_fixtures.txt', 'qsirecon/qsirecon/tests/integration_test_data.py') }}-mriqc-circle-tests-v1" >> "$GITHUB_OUTPUT"
       - id: cache
         uses: actions/cache@v4
         with:
@@ -80,6 +82,9 @@ jobs:
               hsvs_data custom_atlases; do
             (cd qsirecon/.circleci && python get_data.py "$GITHUB_WORKSPACE/data" $dset)
           done
+          curl -fsSL --retry 5 "https://files.osf.io/v1/resources/fvuh8/providers/osfstorage/5b6c9950fed49e001a7885b6" \
+            | tar -xz -C data
+          test -d data/circle-tests
           du -sh data/*
 
   # Each tool built on its own runner, in parallel, and cached on its own: a tool
@@ -377,8 +382,47 @@ jobs:
           name: junit-official-recon-${{ matrix.marker }}-amd64
           path: reports/*.xml
 
+  # MRIQC's pipeline on its circle-tests dataset (T1w and bold), as its CI runs
+  # it, checked against its expected outputs and IQMs (tests/mriqc-pipeline.sh):
+  # in ours and in the official image, on each architecture.
+  mriqc-pipeline:
+    needs: [data, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
+        modality: [T1w, bold]
+        image: [ours, official]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      # MRIQC's amd64 CI checks the IQMs strictly; its arm64 CI, against the
+      # same amd64 references, within dfcheck's tolerance.
+      - name: ${{ matrix.modality }} in ${{ matrix.image }}
+        run: |
+          if [ ${{ matrix.image }} = ours ]; then image=$CACHE:qsi-${{ github.sha }}-${{ matrix.arch }}
+          else image=nipreps/mriqc:26.1.1; fi
+          sh tests/mriqc-pipeline.sh "$image" ${{ matrix.modality }} ${{ matrix.arch == 'amd64' && '--strict' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.image }}-mriqcpipe-${{ matrix.modality }}-${{ matrix.arch }}
+          path: reports/*.xml
+
   compare:
-    needs: [data, image, baseline, integration, integration-official, integration-recon, integration-recon-official]
+    needs: [data, image, baseline, integration, integration-official, integration-recon, integration-recon-official, mriqc-pipeline]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -431,6 +475,15 @@ jobs:
               [ -s "$f" ] || { echo "missing: $f"; status=1; }
               ours="$ours $f"
               official="$official junit/junit-official-recon-$m-amd64/$m.xml"
+            done
+            compare --ours $ours --official $official
+            echo "== MRIQC's pipeline, ours and official on $arch"
+            ours=""; official=""
+            for mod in T1w bold; do
+              f=junit/junit-ours-mriqcpipe-$mod-$arch/mriqc_$mod.xml
+              [ -s "$f" ] || { echo "missing: $f"; status=1; }
+              ours="$ours $f"
+              official="$official junit/junit-official-mriqcpipe-$mod-$arch/mriqc_$mod.xml"
             done
             compare --ours $ours --official $official
           done
