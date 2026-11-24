@@ -378,6 +378,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
  && SETUPTOOLS_SCM_PRETEND_VERSION="$MRIQC_REF" python -m build --wheel -o /wheels /src/mriqc \
  && ls /wheels/mriqc-"$MRIQC_REF"-*.whl
 
+# NIRAL's compiled tools, which DTIPlayground's DTI_Estimate (dtiestim),
+# DTI_Register and BRAIN_Tractography call: built as NIRAL builds them, on
+# CentOS 7 with its ITK 4, VTK 8 and ANTs 2.2, statically, for both processors
+# (NIRAL publishes them prebuilt for x86-64 only), and only those the three
+# modules need (niral-build.sh). They need nothing of the image but zlib.
+FROM centos:7 AS niral
+COPY docker/qsi/niral-build.sh /tmp/niral-build.sh
+RUN bash /tmp/niral-build.sh /opt/dtiplayground-tools && rm /tmp/niral-build.sh
+
 # The tools, built apart so that their (long) builds are cached on their own.
 FROM scratch AS tools
 COPY --from=fsl-qc /opt/fsl /opt/fsl
@@ -397,6 +406,7 @@ COPY --from=c3d /opt/c3d /opt/c3d
 COPY --from=freesurfer /opt/freesurfer /opt/freesurfer
 COPY --from=synb0 /opt/synb0 /opt/synb0
 COPY --from=trxviz /opt/trxviz /opt/trxviz
+COPY --from=niral /opt/dtiplayground-tools /opt/dtiplayground-tools
 
 FROM ${BASE}
 ARG QSIPREP_REF
@@ -441,6 +451,7 @@ COPY --from=tools /opt/c3d /opt/c3d
 COPY --from=tools /opt/freesurfer /opt/freesurfer
 COPY --from=tools /opt/synb0 /opt/synb0
 COPY --from=tools /opt/trxviz /opt/trxviz
+COPY --from=tools /opt/dtiplayground-tools /opt/dtiplayground-tools
 # FSL's and ANTs' own folders go after the environment's, so that their Python
 # and libraries never shadow the notebooks'. FSL's commands are in its bin:
 # the wrappers its packages make in share/fsl/bin need post-link scripts, which
@@ -501,11 +512,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
         /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
         /opt/afni/bin/3dresample /opt/afni/bin/3dTqual | grep 'not found'
 
-# DTIPlayground's tools folder: what it needs to configure itself, in the
-# attendee's ~/.niral-dti, without a question and without downloading FSL or
-# NIRAL's tools there (dtiplayground-tools-info.yml).
-COPY docker/qsi/dtiplayground-tools-info.yml /opt/dtiplayground-tools/info.yml
-RUN ln -s /opt/ants /opt/dtiplayground-tools/ANTs && test -f "$FSLDIR/etc/fslversion"
+# With NIRAL's tools in DTIPLAYGROUNDTOOLS (their info.yml) and FSL's
+# etc/fslversion, DTIPlayground configures itself in the attendee's
+# ~/.niral-dti without a question, and downloads nothing there.
+RUN test -f "$FSLDIR/etc/fslversion" && test -f /opt/dtiplayground-tools/info.yml \
+ && /opt/dtiplayground-tools/DTIProcess/bin/dtiestim --help >/dev/null \
+ && /opt/dtiplayground-tools/DTI-Reg/bin/DTI-Reg --help >/dev/null
 
 # pybids reads a file's datatype from the folder that holds it only, as the
 # official images' pybids does for every dataset laid out as BIDS says

@@ -95,7 +95,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
-        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, dsistudiochen, afni, freesurfer, synb0, trxviz]
+        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, dsistudiochen, afni, freesurfer, synb0, trxviz, niral]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 300
     steps:
@@ -143,7 +143,7 @@ jobs:
         run: |
           {
             echo "from<<EOF"
-            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio dsistudiochen afni freesurfer synb0 trxviz image; do
+            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio dsistudiochen afni freesurfer synb0 trxviz niral image; do
               echo "type=registry,ref=$CACHE:$tool-${{ matrix.arch }}"
             done
             echo "EOF"

@@ -80,6 +80,15 @@ home=$(mktemp -d)
 HOME="$home" dmriplayground init </dev/null >/dev/null 2>&1 || true
 grep -q "path: $FSLDIR" "$home/.niral-dti/global_variables.yml" 2>/dev/null \
     && echo "DTIPlayground configured with $FSLDIR" || broken="${broken:-} dtiplayground-init"
+# NIRAL's tools, which DTIPlayground finds through DTIPLAYGROUNDTOOLS: each starts.
+for p in DTIProcess/bin/dtiprocess DTIProcess/bin/dtiestim DTIProcess/bin/dtiaverage DTIProcess/bin/fiberprocess \
+         DTI-Reg/bin/DTI-Reg BRAINSTools/bin/BRAINSFit BRAINSTools/bin/BRAINSDemonWarp \
+         ResampleDTIlogEuclidean/bin/ResampleDTIlogEuclidean ITKTransformTools/bin/ITKTransformTools \
+         niral_utilities/bin/ImageMath niral_utilities/bin/CropDTI teem/bin/unu \
+         ANTs/bin/ANTS ANTs/bin/WarpImageMultiTransform ANTs/bin/WarpTensorImageMultiTransform; do
+    out=$("$DTIPLAYGROUNDTOOLS/$p" --help 2>&1 | head -c 2000) || true
+    echo "$out" | grep -qiE 'usage|description|option' || broken="${broken:-} $p"
+done
 pip install -q --user pytest pytest-xdist pytest-env
 data=""
 [ -d /data ] && data="--data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work" \
