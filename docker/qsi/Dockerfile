@@ -44,12 +44,16 @@ RUN micromamba create -y -p /opt/fsl \
 
 # FSL's eddy QC (eddy_quad), which DTIPlayground runs: Python, added on top of
 # the FSL above with every package of it kept, so that what TORTOISE links on
-# arm64 is unchanged.
+# arm64 is unchanged. And etc/fslversion, which FSL's installer writes and
+# micromamba does not, and by which DTIPlayground finds FSL: every package
+# pinned here is FSL 6.0.7.23's version (fsl-base, avwutils and warpfns, not
+# pinned, are a little newer).
 FROM fsl AS fsl-qc
 RUN micromamba install -y -p /opt/fsl --freeze-installed \
       -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public -c conda-forge \
       fsl-eddy_qc=v1.4.2 \
- && micromamba clean -a -y && /opt/fsl/bin/eddy_quad --help >/dev/null
+ && micromamba clean -a -y && /opt/fsl/bin/eddy_quad --help >/dev/null \
+ && mkdir -p /opt/fsl/etc && echo 6.0.7.23 > /opt/fsl/etc/fslversion
 
 # ANTs 2.6: conda-forge's build on amd64; built from source on arm64, for which
 # neither conda-forge nor ANTs publishes one, with MRIQC's patch for plain char
