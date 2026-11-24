@@ -6,6 +6,8 @@
 # :qsi and in the official image, which holds no pytest: pytest is installed on
 # the host, for the image's Python, and mounted. Exits 0 when the report is
 # written, whatever the test's outcome, which tests/compare_junit.py judges.
+# The sources are mounted beside /src, not on it: both images keep TORTOISE in
+# /src/TORTOISEV4.
 set -eu
 image=$1 marker=$2
 version=26.2.0
@@ -18,9 +20,9 @@ rm -rf src && git clone -q --depth 1 --branch "$version" https://github.com/Penn
 grep -rl 'np\.row_stack(' src/qsiprep --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
 mkdir -p reports out work && chmod a+rwx reports out work
 docker run --rm --entrypoint bash -e PYTHONPATH=/deps -e CIRCLE_CPUS="$(nproc)" \
-    -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/data:/data:ro" \
+    -v "$PWD/deps:/deps:ro" -v "$PWD/src:/qsiprep-src:ro" -v "$PWD/data:/data:ro" \
     -v "$PWD/reports:/reports" -v "$PWD/out:/out" -v "$PWD/work:/work" "$image" -c \
-    "cp -r /src /tmp/src && cd /tmp/src && python -m pytest --strict-markers -rP -o log_cli=true \
+    "cp -r /qsiprep-src /tmp/src && cd /tmp/src && python -m pytest --strict-markers -rP -o log_cli=true \
        -m $marker --junitxml=/reports/$marker.xml -o junit_logging=no \
        --data_dir=/data --output_dir=/out --working_dir=/work qsiprep" || true
 test -s "reports/$marker.xml"

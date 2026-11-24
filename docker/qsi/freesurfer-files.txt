@@ -2,8 +2,11 @@
 # FreeSurfer 8.2.0: SHA-256, source, and path under $FREESURFER_HOME. The
 # scripts and labels are in FreeSurfer's repository (tag v8.2.0); the models
 # are in its file store, under the key the repository names them by.
+# mri_synthseg is the one from FreeSurfer's dev branch (f7770fb8, May 2026):
+# 8.2.0's fails on NumPy 2.5, which turned its array-to-scalar assignments into
+# errors; dev fixes those and adapts BatchNormalization to newer TensorFlow.
 bbc2ff8f8779862039401b05d5cd6039fb4f3583e0032a793ac9adb3f4521590 https://raw.githubusercontent.com/freesurfer/freesurfer/v8.2.0/mri_synthstrip/mri_synthstrip bin/mri_synthstrip
-f3c182cd100721e8ae4ae4e0661b6ac3c45e80453f716d668d53ca0fe189279b https://raw.githubusercontent.com/freesurfer/freesurfer/v8.2.0/mri_synthseg/mri_synthseg bin/mri_synthseg
+8195fd044b369cb8ed3981e3dcaf30b78fde045e0489f85c085eeeb40b0be1ae https://raw.githubusercontent.com/freesurfer/freesurfer/f7770fb85802b8be860ae7a115565116f03e82d0/mri_synthseg/mri_synthseg bin/mri_synthseg
 37417f802196186441aae3e7f385d94f8a98c64a88acaeaa2723af995c653e33 https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/repo/annex.git/annex/objects/fdd/51c/SHA256E-s30851709--37417f802196186441aae3e7f385d94f8a98c64a88acaeaa2723af995c653e33.1.pt/SHA256E-s30851709--37417f802196186441aae3e7f385d94f8a98c64a88acaeaa2723af995c653e33.1.pt models/synthstrip.1.pt
 62bf01137c45b5f0cc04d59dbaed5b9ac138b3f25b766c062a7c1a0d696ecb28 https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/repo/annex.git/annex/objects/ae1/f00/SHA256E-s30851709--62bf01137c45b5f0cc04d59dbaed5b9ac138b3f25b766c062a7c1a0d696ecb28.1.pt/SHA256E-s30851709--62bf01137c45b5f0cc04d59dbaed5b9ac138b3f25b766c062a7c1a0d696ecb28.1.pt models/synthstrip.nocsf.1.pt
 f190bfd742f450ef3ca2c9df9ed4d2e0232b3a74471da5e51b7770bacdf80c3e https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/repo/annex.git/annex/objects/bee/241/SHA256E-s53079152--f190bfd742f450ef3ca2c9df9ed4d2e0232b3a74471da5e51b7770bacdf80c3e.0.h5/SHA256E-s53079152--f190bfd742f450ef3ca2c9df9ed4d2e0232b3a74471da5e51b7770bacdf80c3e.0.h5 models/synthseg_2.0.h5

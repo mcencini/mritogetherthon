@@ -227,8 +227,8 @@ jobs:
                      -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work' ;;
           esac
           docker run --rm --entrypoint bash -e PYTHONPATH=/deps \
-            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data" "$image" -c \
-            "cp -r /src /tmp/src && cd /tmp/src && $tests --junitxml=/reports/${{ matrix.name }}.xml" || true
+            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/qsiprep-src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data" "$image" -c \
+            "cp -r /qsiprep-src /tmp/src && cd /tmp/src && $tests --junitxml=/reports/${{ matrix.name }}.xml" || true
           test -s reports/${{ matrix.name }}.xml
       - uses: actions/upload-artifact@v4
         with:
@@ -343,10 +343,10 @@ jobs:
             echo "== QSIPrep's integration tests, ours on $arch, official on amd64"
             ours=""; official=""
             for m in $markers; do
-              f=junit/junit-ours-int-$m-$arch/$m.xml
+              f=junit/junit-ours-int-$m-$arch/reports/$m.xml
               [ -s "$f" ] || { echo "missing: $f"; status=1; }
-              ours="$ours junit/junit-ours-int-$m-$arch/$m.xml"
-              official="$official junit/junit-official-int-$m-amd64/$m.xml"
+              ours="$ours $f"
+              official="$official junit/junit-official-int-$m-amd64/reports/$m.xml"
             done
             compare --all-must-pass --ours $ours --official $official
           done
