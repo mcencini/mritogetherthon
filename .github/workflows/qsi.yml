@@ -36,7 +36,9 @@ env:
 
 jobs:
   # QSIPrep's test data, as its own CI gets it: two small real datasets, and the
-  # subjects its simulator, TRXScan, generates. Cached by their versions.
+  # subjects its simulator, TRXScan, generates; and QSIRecon's six datasets, as
+  # its CI gets them before any test runs (its tests' own download races when
+  # they run in parallel). Cached by their versions.
   data:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -49,10 +51,12 @@ jobs:
       - id: markers
         run: |
           echo 'markers=["trxscan_rpe_topup", "trxscan_rpe_drbuddi", "trxscan_epi_topup", "trxscan_epi_drbuddi", "trxscan_phasediff", "trxscan_gnl", "trxscan_motion", "trxscan_offsets", "trxscan_diffprep", "trxscan_synb0", "trxscan_unpile"]' >> "$GITHUB_OUTPUT"
-      - name: QSIPrep's sources
-        run: git clone -q --depth 1 --branch 26.2.0 https://github.com/PennLINC/qsiprep.git qsiprep
+      - name: QSIPrep's and QSIRecon's sources
+        run: |
+          git clone -q --depth 1 --branch 26.2.0 https://github.com/PennLINC/qsiprep.git qsiprep
+          git clone -q --depth 1 --branch 26.0.1 https://github.com/PennLINC/qsirecon.git qsirecon
       - id: key
-        run: echo "key=qsi-data-${{ hashFiles('qsiprep/.circleci/data_versions.txt', 'qsiprep/.circleci/trxscan_fixtures.txt') }}" >> "$GITHUB_OUTPUT"
+        run: echo "key=qsi-data-${{ hashFiles('qsiprep/.circleci/data_versions.txt', 'qsiprep/.circleci/trxscan_fixtures.txt', 'qsirecon/qsirecon/tests/integration_test_data.py') }}" >> "$GITHUB_OUTPUT"
       - id: cache
         uses: actions/cache@v4
         with:
@@ -69,6 +73,10 @@ jobs:
           pip install -q "trxscan[trx]==$(sed -n 's/^TRXSCAN_VERSION=//p' qsiprep/.circleci/trxscan_fixtures.txt)"
           trxscan-fetch sub-60501
           (cd qsiprep && python -m qsiprep.tests.trxscan_fixtures --generate "$GITHUB_WORKSPACE/data")
+          for dset in singleshell_output multishell_output multises_pre1_output multises_post1_output \
+              hsvs_data custom_atlases; do
+            (cd qsirecon/.circleci && python get_data.py "$GITHUB_WORKSPACE/data" $dset)
+          done
           du -sh data/*
 
   # Each tool built on its own runner, in parallel, and cached on its own: a tool
