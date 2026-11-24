@@ -93,8 +93,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
 FROM rust:1-slim-trixie AS trxviz-arm64
 ARG TRXVIZ_REF=0.6.0
-RUN apt-get update && apt-get install -y --no-install-recommends git pkg-config \
+# (cmake and g++ for the HDF5 it bundles, with plain char signed as on x86.)
+RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ git make pkg-config \
  && git clone -q --depth 1 --branch "$TRXVIZ_REF" https://github.com/tee-ar-ex/TRXViz.git /src \
+ && export CFLAGS=-fsigned-char CXXFLAGS=-fsigned-char \
  && cd /src && cargo build --release --locked -p trxviz-cli \
  && mkdir -p /opt/trxviz && cp target/release/trxviz-cli /opt/trxviz/ && rm -rf /src
 
