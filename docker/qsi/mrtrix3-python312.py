@@ -44,15 +44,28 @@ new_imported = """def imported(lib_path):
 assert old_import in text and old_imported in text, f"{loader} is not 3.0.4's"
 loader.write_text(text.replace(old_import, new_import).replace(old_imported, new_imported))
 
+
+def python_files():
+    """The library's modules, and the commands in bin/, which have no extension."""
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text()
+        except UnicodeDecodeError:  # the compiled commands
+            continue
+        if path.suffix == ".py" or text.startswith("#!") and "python" in text.splitlines()[0]:
+            yield path, text
+
+
 patched = [loader]
-for path in root.rglob("*.py"):
-    text = path.read_text()
+for path, text in python_files():
     if "from distutils.spawn import find_executable" in text:
         path.write_text(text.replace("from distutils.spawn import find_executable",
                                      "from shutil import which as find_executable"))
         patched.append(path)
 # Imports and calls only: comments may still name distutils.
 stale = re.compile(r"^\s*(from|import)\s+(distutils|imp)\b|\bimp\.", re.MULTILINE)
-left = [p for p in root.rglob("*.py") if stale.search(p.read_text())]
+left = [path for path, text in python_files() if stale.search(text)]
 assert not left, f"still importing distutils or imp: {left}"
 print("patched", len(patched), "files")
