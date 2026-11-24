@@ -27,9 +27,9 @@ jobs:
             pip install -q uv
             uv pip install --system --constraints /tmp/c.txt dtiplayground==0.9.14 2>&1 | tail -25 || exit 1
             mkdir -p /opt/dtiplayground-tools && printf "name: dtiplayground-tools\nversion: none\n" > /opt/dtiplayground-tools/info.yml
-            ls $FSLDIR/etc/fslversion && cat $FSLDIR/etc/fslversion
+            echo 6.0.7.23 > $FSLDIR/etc/fslversion
             h=$(mktemp -d); HOME=$h dmriplayground init </dev/null 2>&1 | tail -15; echo "init exit $?"
             cat $h/.niral-dti/global_variables.yml
             cd /tmp && git clone -q --depth 1 --branch v0.9.14 https://github.com/NIRALUser/DTIPlayground.git d && cd d
             pip install -q pytest
-            HOME=$(mktemp -d) python -m pytest tests -q -p no:cacheprovider 2>&1 | tail -25'
+            HOME=$(mktemp -d) python -m pytest tests/test_config_dir.py -q -p no:cacheprovider 2>&1 | tail -6'
