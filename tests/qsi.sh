@@ -35,7 +35,8 @@ if [ -n "$missing" ]; then echo "missing:$missing"; else echo "every tool is on 
 antsRegistration --version | head -1
 mrconvert -version | head -1
 # SynthStrip on the MNI template's head, against the template's own brain mask.
-python - <<'EOF'
+# A failure is reported at the end, after the tests.
+python - <<'EOF' || broken="mri_synthstrip"
 import subprocess, tempfile
 import nibabel as nb
 from templateflow import api as tf
@@ -70,5 +71,6 @@ cp "$(python -I -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_
 (cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
     --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
     --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
+[ -z "${broken:-}" ] || { echo "broken: $broken"; exit 1; }
 [ -z "$missing" ] || { echo "missing:$missing"; exit 3; }
 [ -z "${status:-}" ] || exit 2

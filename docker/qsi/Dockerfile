@@ -408,7 +408,9 @@ ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
 # are lifted (overrides.txt). numpy 2 removed np.row_stack, an alias of
 # np.vstack, which QSIPrep and QSIRecon call: the installed files are patched, so
 # that the versions stay as tagged. One of pyAFQ's dependencies (phamt) and
-# surfa, which FreeSurfer's scripts import, at QSIPrep's version, are compiled.
+# surfa, which FreeSurfer's scripts import, are compiled. surfa is its master
+# (as FreeSurfer's own SynthStrip image takes it from a commit): its last
+# release, 0.6.3, QSIPrep's, fails on numpy 2, fixed there since.
 # TensorFlow, for SynthSeg, is its CPU-only build: tensorflow-cpu on amd64, and
 # tensorflow on arm64, which has no other; tf-keras, which mri_synthseg's Keras
 # 2 code needs (TF_USE_LEGACY_KERAS), asks for tensorflow by name, which on
@@ -421,7 +423,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && git clone -q --depth 1 --branch "$QSIPREP_REF" https://github.com/PennLINC/qsiprep.git /tmp/qsiprep \
  && git clone -q --depth 1 --branch "$QSIRECON_REF" https://github.com/PennLINC/qsirecon.git /tmp/qsirecon \
  && uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
-      --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon /wheels/mriqc-*.whl toml surfa==0.6.3 \
+      --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon /wheels/mriqc-*.whl toml "surfa @ https://github.com/freesurfer/surfa/archive/c5687c456f89cf3d15583f0790ded7e22dd00b2f.zip" \
       "tensorflow-cpu==2.21.0; platform_machine == 'x86_64'" "tensorflow==2.21.0; platform_machine == 'aarch64'" tf-keras==2.21.0 \
  && SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
  && grep -rl 'np\.row_stack(' "$SITE/qsiprep" "$SITE/qsirecon" --include='*.py' \
