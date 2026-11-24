@@ -1,0 +1,1 @@
+<?xml version="1.0"?><testsuites><testsuite name="mriqc-pipeline"><testcase classname="mriqc.pipeline.T1w" name="participant_and_group"/><testcase classname="mriqc.pipeline.T1w" name="outputs"/><testcase classname="mriqc.pipeline.T1w" name="iqms"><failure message="the IQMs differ from mriqc/data/testdata/group_T1w.tsv: see the job's log"/></testcase></testsuite></testsuites>

@@ -1,0 +1,17 @@
+# Tests that pass in the official images and are expected to fail in :qsi,
+# each with the reason. tests/compare_junit.py reports them without counting them.
+
+# MRIQC's T1w IQMs, checked strictly on amd64 against its reference table: ours
+# differ from it in the same IQMs and by as much as the official image does on
+# arm64, which fails this check too (SNR and CJV within 0.5%, some tissue
+# intensity statistics more: kurtosis up to ~13%, qi_2 57%); on arm64 ours
+# matches the official image. Different numerical libraries, same pipeline.
+mriqc.pipeline.T1w::iqms
+
+# QSIPrep reads eddy's version from FSL's package records, and when one is
+# unreadable, from $FSLDIR/etc/fslversion through nipype, which caches it for
+# the process. The official image has no such file (version unknown); this one
+# has it, for DTIPlayground, naming the release QSIPrep itself records
+# (qsiprep/data/fsl_release.json, 6.0.7.23): the test, run after another that
+# read the version, gets 6.0.7.23 instead of unknown.
+qsiprep.tests.test_boilerplate::test_eddy_version_survives_an_unreadable_record

@@ -1,0 +1,545 @@
+# The full environment: QSIPrep, QSIRecon and MRIQC (docker/qsi) on the base
+# image (image.yml), built on each architecture's own runner, tested as the
+# launcher starts it, with the three packages' unit tests, QSIPrep's and
+# QSIRecon's integration tests and MRIQC's pipeline test, each compared with the
+# same tests in the official images (tests/compare_junit.py). Published when no
+# test fails in ours only: from main, once image.yml has published :base, as
+# ghcr.io/mcencini/mritogetherthon:latest, the image the launchers start; from
+# the qsi branch, as :qsi.
+name: QSI image
+
+on:
+  push:
+    branches: [qsi]
+  workflow_run:
+    workflows: [Image]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: "Build and test one architecture only (amd64 or arm64), or both"
+        default: both
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  # Each tool's build cache, in the registry: kept whatever else fails, and
+  # without the 10 GB limit of GitHub's own cache.
+  CACHE: ghcr.io/${{ github.repository }}-cache
+
+jobs:
+  # QSIPrep's test data, as its own CI gets it: two small real datasets, and the
+  # subjects its simulator, TRXScan, generates; and QSIRecon's six datasets, as
+  # its CI gets them before any test runs (its tests' own download races when
+  # they run in parallel); and MRIQC's circle-tests dataset, which its CI runs
+  # the pipeline on. Cached by their versions.
+  data:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+      markers: ${{ steps.markers.outputs.markers }}
+      recon_markers: ${{ steps.markers.outputs.recon_markers }}
+    steps:
+      # QSIPrep's integration tests, as its CI runs them, one job each. Left
+      # out: trxscan_gre_unpile, which QSIPrep's CI leaves out too.
+      - id: markers
+        run: |
+          # QSIRecon's, every one its CI runs (at the commit ours installs).
+          echo 'recon_markers=["mrtrix_singleshell_ss3t_act", "mrtrix_singleshell_ss3t_noact", "ss3t_fod_autotrack", "mrtrix_multishell_msmt_hsvs", "mrtrix3_recon", "mrtrix3_recon_with_response_functions", "multises_pre1_qsiprep", "multises_post1_qsiprep", "autotrack", "chen_autotrack", "tortoise_recon", "dsi_studio_gqi_recon", "dipy_mapmri", "dipy_dki", "dipy_force", "amico_noddi", "abcd_rsi", "pyafq_recon_full", "pyafq_recon_external_trk", "scalar_mapper"]' >> "$GITHUB_OUTPUT"
+          echo 'markers=["trxscan_rpe_topup", "trxscan_rpe_drbuddi", "trxscan_epi_topup", "trxscan_epi_drbuddi", "trxscan_phasediff", "trxscan_gnl", "trxscan_motion", "trxscan_offsets", "trxscan_diffprep", "trxscan_synb0", "trxscan_unpile"]' >> "$GITHUB_OUTPUT"
+      - name: QSIPrep's and QSIRecon's sources
+        run: |
+          git clone -q --depth 1 --branch 26.2.0 https://github.com/PennLINC/qsiprep.git qsiprep
+          git clone -q --depth 1 --branch 26.0.1 https://github.com/PennLINC/qsirecon.git qsirecon
+      - id: key
+        run: echo "key=qsi-data-${{ hashFiles('qsiprep/.circleci/data_versions.txt', 'qsiprep/.circleci/trxscan_fixtures.txt', 'qsirecon/qsirecon/tests/integration_test_data.py') }}-mriqc-circle-tests-v1" >> "$GITHUB_OUTPUT"
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: ${{ steps.key.outputs.key }}
+      - name: Download and generate
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -a; . qsiprep/.circleci/data_versions.txt; set +a
+          mkdir -p data/forrest_gump data/nibs
+          curl -fsSL --retry 5 "$FORREST_GUMP_URL" | tar -xJ -C data/forrest_gump
+          curl -fsSL --retry 5 "$NIBS_URL" | tar -xJ -C data/nibs
+          python3 -m venv venv && . venv/bin/activate
+          pip install -q "trxscan[trx]==$(sed -n 's/^TRXSCAN_VERSION=//p' qsiprep/.circleci/trxscan_fixtures.txt)"
+          trxscan-fetch sub-60501
+          (cd qsiprep && python -m qsiprep.tests.trxscan_fixtures --generate "$GITHUB_WORKSPACE/data")
+          for dset in singleshell_output multishell_output multises_pre1_output multises_post1_output \
+              hsvs_data custom_atlases; do
+            (cd qsirecon/.circleci && python get_data.py "$GITHUB_WORKSPACE/data" $dset)
+          done
+          curl -fsSL --retry 5 "https://files.osf.io/v1/resources/fvuh8/providers/osfstorage/5b6c9950fed49e001a7885b6" \
+            | tar -xz -C data
+          test -d data/circle-tests
+          du -sh data/*
+
+  # Each tool built on its own runner, in parallel, and cached on its own: a tool
+  # that fails rebuilds alone, and one that is unchanged costs a cache download.
+  # (TORTOISE and c3d build on the same ITK, which each job builds or takes from
+  # the other's cache.)
+  tools:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
+        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, dsistudiochen, afni, freesurfer, synb0, trxviz, niral]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ${{ matrix.tool }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/qsi/Dockerfile
+          target: ${{ matrix.tool }}
+          cache-from: |
+            type=registry,ref=${{ env.CACHE }}:${{ matrix.tool }}-${{ matrix.arch }}
+            type=registry,ref=${{ env.CACHE }}:tortoise-${{ matrix.arch }}
+            type=registry,ref=${{ env.CACHE }}:c3d-${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ env.CACHE }}:${{ matrix.tool }}-${{ matrix.arch }},mode=max
+
+  image:
+    needs: [data, tools]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The tools come from their jobs' caches; only the image itself is built.
+      - id: caches
+        run: |
+          {
+            echo "from<<EOF"
+            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio dsistudiochen afni freesurfer synb0 trxviz niral image; do
+              echo "type=registry,ref=$CACHE:$tool-${{ matrix.arch }}"
+            done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      # On :base, which main publishes; before main first publishes it, on
+      # :latest, which until then is that same base environment.
+      - id: base
+        run: |
+          if docker buildx imagetools inspect "$IMAGE:base" >/dev/null 2>&1; then
+            echo "base=$IMAGE:base"
+          else
+            echo "base=$IMAGE:latest"
+          fi | tee -a "$GITHUB_OUTPUT"
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/qsi/Dockerfile
+          tags: mritogetherthon
+          load: true
+          build-args: BASE=${{ steps.base.outputs.base }}
+          cache-from: ${{ steps.caches.outputs.from }}
+          cache-to: type=registry,ref=${{ env.CACHE }}:image-${{ matrix.arch }},mode=max
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      - name: Start it as the launcher does
+        run: |
+          mkdir work
+          docker run -d --name mritogetherthon -p 127.0.0.1:8899:8888 \
+            --user "$(id -u):$(id -g)" -e JUPYTER_TOKEN=smoke \
+            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/handson:/handson:ro" -v "$PWD/data:/data" mritogetherthon
+          for i in $(seq 60); do curl -fs -o /dev/null http://127.0.0.1:8899/api && break; sleep 2; done
+      - name: Check the setup
+        run: docker exec mritogetherthon check-setup
+      - name: Run a notebook in each kernel
+        run: docker exec mritogetherthon python /tests/smoke.py
+      - name: Run the day 1 notebook
+        run: docker exec mritogetherthon python /tests/notebook.py /handson/day1/placenta_b_optimisation.ipynb
+      # Exit code 2 is tests that fail, and 3 programs missing or checks failed:
+      # the compare job judges both, so that the integration tests run whatever
+      # they are, and one run shows every problem.
+      - name: The tools, and QSIPrep's, QSIRecon's and MRIQC's unit tests
+        run: docker exec mritogetherthon sh /tests/qsi.sh || { rc=$?; [ $rc -eq 2 ] || [ $rc -eq 3 ]; }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-ours-${{ matrix.arch }}
+          path: |
+            work/*.xml
+            work/missing.txt
+            work/broken.txt
+      - name: Size
+        if: always()
+        run: docker image ls mritogetherthon
+      - name: Logs
+        if: always()
+        run: docker logs mritogetherthon
+      # For the integration tests' jobs, and for publish, which tags it as :qsi
+      # if the tests pass.
+      - name: Push the architecture's image to the cache
+        run: |
+          docker tag mritogetherthon "$CACHE:qsi-${{ github.sha }}-${{ matrix.arch }}"
+          docker push -q "$CACHE:qsi-${{ github.sha }}-${{ matrix.arch }}"
+
+  # The same tests, from the same sources, in the official images, so that a
+  # failure the official image shares is not counted against ours: QSIPrep's and
+  # QSIRecon's are published for amd64 only, MRIQC's for both.
+  # The official images' jobs run on pushes to the qsi branch, where their pins
+  # change; from main, the comparison reads their reports as saved in
+  # tests/reference (the images are pinned, and so are their results).
+  baseline:
+    needs: data
+    if: github.event_name != 'workflow_run'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: qsiprep, org: PennLINC, ref: 26.2.0, arch: amd64}
+          # QSIRecon's main at the commit ours installs, as pennlinc/qsirecon:unstable
+          - {name: qsirecon, org: PennLINC, ref: 5c71312ddf901ad4add2b8f9146c344ba6bc3ae6, arch: amd64, image: "pennlinc/qsirecon@sha256:8477caed377b165f10a7a3963a7b968fa7611b0aa3ffc473d70dde880a22cbc8"}
+          - {name: mriqc, org: nipreps, ref: 26.1.1, arch: amd64}
+          - {name: mriqc, org: nipreps, ref: 26.1.1, arch: arm64}
+          # DTIPlayground's own image of the release ours installs (amd64 only)
+          - {name: dtiplayground, org: NIRALUser, ref: v0.9.14, arch: amd64, image: "niraluser/dtiplayground@sha256:a097df0a29c9dcdd7cf2b130b5a5c2d6e3317638a14b8f2e129e26f661d0e977"}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 120
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      # The official environments hold no pip, and QSIRecon's no pytest: pytest
+      # is installed on the runner, for the image's Python, and mounted. pip
+      # evaluates markers for the runner's Python, so the backports pytest needs
+      # before 3.11 are named.
+      - name: Unit tests in ${{ matrix.image || format('{0}/{1}:{2}', matrix.org, matrix.name, matrix.ref) }}
+        run: |
+          image="${{ matrix.image }}"
+          [ -n "$image" ] || image=$(echo "${{ matrix.org }}" | tr A-Z a-z)/${{ matrix.name }}:${{ matrix.ref }}
+          docker pull -q "$image"
+          py=$(docker run --rm --entrypoint python "$image" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')
+          echo "Python $py"
+          python3 -m pip install -q --target deps --python-version "$py" --only-binary=:all: \
+            pytest pytest-xdist pytest-env toml exceptiongroup tomli
+          git clone -q --filter=blob:none https://github.com/${{ matrix.org }}/${{ matrix.name }}.git src
+          git -C src checkout -q ${{ matrix.ref }}
+          chmod -R a+rX src
+          mkdir reports && chmod a+w reports && chmod -R a+rwX data
+          case ${{ matrix.name }} in
+            mriqc) tests='cp "$(python -I -c "import mriqc, os; print(os.path.dirname(mriqc.__file__))")/_version.py" mriqc/ && \
+                     python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
+                       --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py' ;;
+            dtiplayground) tests='HOME=$(mktemp -d) python -m pytest tests -q -p no:cacheprovider' ;;
+            *) tests='mkdir -p /tmp/qsi-out /tmp/qsi-work && python -m pytest ${{ matrix.name }}/tests -n auto -q \
+                     -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work' ;;
+          esac
+          docker run --rm --entrypoint bash -e PYTHONPATH=/deps \
+            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/qsiprep-src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data" "$image" -c \
+            "cp -r /qsiprep-src /tmp/src && cd /tmp/src && $tests --junitxml=/reports/${{ matrix.name }}.xml" || true
+          test -s reports/${{ matrix.name }}.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-official-${{ matrix.name }}-${{ matrix.arch }}
+          path: reports/*.xml
+
+  # QSIPrep's integration tests: each runs QSIPrep on a subject TRXScan
+  # simulated, and scores the result against the simulation's truth. They run
+  # as QSIPrep's CI runs them, one job each, in ours (each architecture) and in
+  # the official image (amd64, the only one published), with the same command
+  # (tests/qsi-integration.sh).
+  integration:
+    needs: [data, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
+        marker: ${{ fromJSON(needs.data.outputs.markers) }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      - name: ${{ matrix.marker }}
+        run: sh tests/qsi-integration.sh "$CACHE:qsi-${{ github.sha }}-${{ matrix.arch }}" ${{ matrix.marker }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-ours-int-${{ matrix.marker }}-${{ matrix.arch }}
+          path: |
+            reports/*.xml
+            out/**/truth_score.json
+
+  integration-official:
+    needs: data
+    if: github.event_name != 'workflow_run'
+    strategy:
+      fail-fast: false
+      matrix:
+        marker: ${{ fromJSON(needs.data.outputs.markers) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      - name: ${{ matrix.marker }}
+        run: sh tests/qsi-integration.sh pennlinc/qsiprep:26.2.0 ${{ matrix.marker }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-official-int-${{ matrix.marker }}-amd64
+          path: |
+            reports/*.xml
+            out/**/truth_score.json
+
+  # QSIRecon's integration tests, as its CI runs them, one job each: each runs
+  # a reconstruction workflow on QSIPrep outputs and checks it completes with
+  # its outputs. They judge no truth, so ours must pass where the official
+  # image (amd64) does, as the unit tests.
+  integration-recon:
+    needs: [data, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
+        marker: ${{ fromJSON(needs.data.outputs.recon_markers) }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      - name: ${{ matrix.marker }}
+        run: sh tests/qsi-integration.sh "$CACHE:qsi-${{ github.sha }}-${{ matrix.arch }}" ${{ matrix.marker }} qsirecon 5c71312ddf901ad4add2b8f9146c344ba6bc3ae6
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-ours-recon-${{ matrix.marker }}-${{ matrix.arch }}
+          path: reports/*.xml
+
+  integration-recon-official:
+    needs: data
+    if: github.event_name != 'workflow_run'
+    strategy:
+      fail-fast: false
+      matrix:
+        marker: ${{ fromJSON(needs.data.outputs.recon_markers) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      - name: ${{ matrix.marker }}
+        run: sh tests/qsi-integration.sh pennlinc/qsirecon@sha256:8477caed377b165f10a7a3963a7b968fa7611b0aa3ffc473d70dde880a22cbc8 ${{ matrix.marker }} qsirecon 5c71312ddf901ad4add2b8f9146c344ba6bc3ae6
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-official-recon-${{ matrix.marker }}-amd64
+          path: reports/*.xml
+
+  # MRIQC's pipeline on its circle-tests dataset (T1w and bold), as its CI runs
+  # it, checked against its expected outputs and IQMs (tests/mriqc-pipeline.sh):
+  # in ours and in the official image, on each architecture.
+  mriqc-pipeline:
+    needs: [data, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
+        modality: [T1w, bold]
+        image: ${{ fromJSON(github.event_name == 'workflow_run' && '["ours"]' || '["ours", "official"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ needs.data.outputs.key }}
+          fail-on-cache-miss: true
+      # MRIQC's amd64 CI checks the IQMs strictly; its arm64 CI, against the
+      # same amd64 references, within dfcheck's tolerance.
+      - name: ${{ matrix.modality }} in ${{ matrix.image }}
+        run: |
+          if [ ${{ matrix.image }} = ours ]; then image=$CACHE:qsi-${{ github.sha }}-${{ matrix.arch }}
+          else image=nipreps/mriqc:26.1.1; fi
+          sh tests/mriqc-pipeline.sh "$image" ${{ matrix.modality }} ${{ matrix.arch == 'amd64' && '--strict' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.image }}-mriqcpipe-${{ matrix.modality }}-${{ matrix.arch }}
+          path: reports/*.xml
+
+  compare:
+    needs: [data, image, baseline, integration, integration-official, integration-recon, integration-recon-official, mriqc-pipeline]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Downloading every artifact at once has failed now and then: tried twice.
+      - id: download
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: junit
+          pattern: junit-*
+      - if: steps.download.outcome == 'failure'
+        uses: actions/download-artifact@v4
+        with:
+          path: junit
+          pattern: junit-*
+      - name: The official images' reports, as saved, from main
+        if: github.event_name == 'workflow_run'
+        run: cp -r tests/reference/junit-official-* junit/
+      - name: Tests that fail in ours but pass in the official image
+        run: |
+          status=0
+          markers=$(echo '${{ needs.data.outputs.markers }}' | jq -r '.[]')
+          compare() { python tests/compare_junit.py --expected tests/qsi-expected.txt "$@" || status=1; }
+          for arch in amd64 arm64; do
+            [ -d junit/junit-ours-$arch ] || { echo "== $arch: not built in this run"; continue; }
+            if [ -s junit/junit-ours-$arch/missing.txt ]; then
+              echo "== $arch: programs missing:"; cat junit/junit-ours-$arch/missing.txt; status=1
+            fi
+            if [ -s junit/junit-ours-$arch/broken.txt ]; then
+              echo "== $arch: checks failed:"; cat junit/junit-ours-$arch/broken.txt; status=1
+            fi
+            [ -f junit/junit-ours-$arch/broken.txt ] || { echo "== $arch: the checks did not run"; status=1; }
+            for name in qsiprep qsirecon mriqc dtiplayground; do
+              # The official image of the same architecture, or amd64's, the only one published
+              official=junit/junit-official-$name-$arch
+              [ -d "$official" ] || official=junit/junit-official-$name-amd64
+              echo "== $name, ours on $arch, official on ${official##*-}"
+              # (ours may split a package's tests in several reports: qsiprep-synthseg.xml)
+              compare --ours junit/junit-ours-$arch/$name*.xml --official "$official/$name.xml"
+            done
+            # They score themselves against the simulation's truth: each must pass
+            # in ours. The official image's outcomes are shown alongside.
+            echo "== QSIPrep's integration tests, ours on $arch, official on amd64"
+            ours=""; official=""
+            for m in $markers; do
+              f=junit/junit-ours-int-$m-$arch/reports/$m.xml
+              [ -s "$f" ] || { echo "missing: $f"; status=1; }
+              ours="$ours $f"
+              official="$official junit/junit-official-int-$m-amd64/reports/$m.xml"
+            done
+            compare --all-must-pass --ours $ours --official $official
+            echo "== QSIRecon's integration tests, ours on $arch, official on amd64"
+            ours=""; official=""
+            for m in $(echo '${{ needs.data.outputs.recon_markers }}' | jq -r '.[]'); do
+              f=junit/junit-ours-recon-$m-$arch/$m.xml
+              [ -s "$f" ] || { echo "missing: $f"; status=1; }
+              ours="$ours $f"
+              official="$official junit/junit-official-recon-$m-amd64/$m.xml"
+            done
+            compare --ours $ours --official $official
+            echo "== MRIQC's pipeline, ours and official on $arch"
+            ours=""; official=""
+            for mod in T1w bold; do
+              f=junit/junit-ours-mriqcpipe-$mod-$arch/mriqc_$mod.xml
+              [ -s "$f" ] || { echo "missing: $f"; status=1; }
+              ours="$ours $f"
+              official="$official junit/junit-official-mriqcpipe-$mod-$arch/mriqc_$mod.xml"
+            done
+            compare --ours $ours --official $official
+          done
+          exit $status
+      - name: Truth scores
+        if: always()
+        run: find junit -name truth_score.json | sort | while read -r f; do echo "== $f"; jq -c . "$f"; done
+
+  publish:
+    if: (github.event_name == 'push' || github.event_name == 'workflow_run') && needs.compare.result == 'success'
+    needs: compare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish one image for both architectures
+        run: |
+          if [ "${{ github.event_name }}" = workflow_run ]; then tags="latest ${{ github.sha }}"
+          else tags="qsi qsi-${{ github.sha }}"; fi
+          for tag in $tags; do
+            docker buildx imagetools create -t "$IMAGE:$tag" \
+              "$CACHE:qsi-${{ github.sha }}-amd64" "$CACHE:qsi-${{ github.sha }}-arm64"
+          done

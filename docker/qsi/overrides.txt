@@ -1,0 +1,28 @@
+# QSIPrep's and QSIRecon's caps that our environment exceeds, lifted: the
+# environment's own versions win, and the packages' unit tests run on them.
+jinja2
+networkx
+nibabel
+numpy
+pandas
+psutil
+scikit-learn
+# QSIPrep and QSIRecon pin nilearn 0.10.1; niworkflows 1.15, which MRIQC needs,
+# 0.11.1 or later. 0.11.1 is both: from 0.12, NiftiLabelsMasker.labels_ differs
+# (QSIRecon's scalar mapper then fails with KeyError: 0).
+nilearn==0.11.1
+niworkflows
+pybids
+dipy
+nipype
+asttokens
+python-dateutil
+# QSIRecon pins AMICO 2.0.3, which caps numpy below 2: AMICO takes its current
+# release. (pyAFQ needs no override: QSIRecon's main pins 3.4, as this
+# environment has.)
+dmri-amico>=2.2
+# TensorFlow 2.21 caps h5py below 3.15.
+h5py
+# tf-keras asks for tensorflow, which on amd64 is the CUDA build: there, the
+# CPU-only tensorflow-cpu is installed instead, and the requirement dropped.
+tensorflow==2.21.0; platform_machine == 'aarch64'

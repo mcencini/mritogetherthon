@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="1024.460" timestamp="2026-11-24T18:13:07.099283+00:00" hostname="2bfd42411b80"><testcase classname="qsiprep.tests.test_cli" name="test_trxscan_gnl" time="1014.125" /></testsuite></testsuites>
