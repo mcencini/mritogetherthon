@@ -1,0 +1,27 @@
+# Throwaway: mri_synthseg's own output in the image run 45352132514 pushed.
+name: Debug SynthSeg
+on:
+  push:
+    branches: [qsi-debug]
+permissions:
+  contents: read
+  packages: read
+jobs:
+  synthseg:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          image=ghcr.io/mcencini/mritogetherthon-cache:qsi-2e49aa1a09eddb5597d7078666f419df995d7cfb-amd64
+          docker pull -q "$image"
+          docker run --rm --entrypoint bash "$image" -c '
+            pip list 2>/dev/null | grep -iE "^(tensorflow|tf.keras|keras|numpy|surfa|h5py|ml.dtypes) "
+            t1=/opt/templateflow/tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-02_T1w.nii.gz
+            cd /tmp && mri_synthseg --cpu --threads 1 --i $t1 --o seg.nii.gz --post post.nii.gz --qc qc.csv; echo "exit $?"
+            ls -la /tmp'
