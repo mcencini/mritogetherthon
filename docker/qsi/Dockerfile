@@ -10,7 +10,10 @@
 
 ARG BASE=ghcr.io/mcencini/mritogetherthon:base
 ARG QSIPREP_REF=26.2.0
-ARG QSIRECON_REF=26.0.1
+# QSIRecon from its main branch, 17 commits after 26.0.1, which runs on pyAFQ 3.4
+# and DIPY 1.12 (26.0.1 pins pyAFQ 2.0 and DIPY 1.10): the commit
+# pennlinc/qsirecon:unstable is built from.
+ARG QSIRECON_REF=5c71312ddf901ad4add2b8f9146c344ba6bc3ae6
 ARG MRIQC_REF=26.1.1
 
 # micromamba, to install FSL from its own conda channel, and ANTs from
@@ -75,6 +78,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ git m
  && cd /src && /maturin/bin/maturin build --release --compatibility linux -o /wheels
 
 FROM unpile-${TARGETARCH} AS unpile
+
+# TRXViz's headless renderer, trxviz-cli, with which QSIRecon draws its ODF and
+# peak figures: the release QSIRecon's image takes on amd64, built from the same
+# tag on arm64, for which TRXViz publishes no binary.
+FROM debian:trixie-slim AS trxviz-amd64
+ARG TRXVIZ_REF=0.6.0
+ARG TRXVIZ_SHA256=c8a4bbd1277f4e543aa54dcf8230ca4a11b8cd7f1ec6180481426abc2473f8be
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+ && mkdir -p /opt/trxviz \
+ && curl -fsSL -o /tmp/trxviz.tar.gz "https://github.com/tee-ar-ex/TRXViz/releases/download/$TRXVIZ_REF/TRXViz-linux-legacy.tar.gz" \
+ && echo "$TRXVIZ_SHA256  /tmp/trxviz.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/trxviz.tar.gz -C /opt/trxviz trxviz-cli && rm /tmp/trxviz.tar.gz
+
+FROM rust:1-slim-trixie AS trxviz-arm64
+ARG TRXVIZ_REF=0.6.0
+RUN apt-get update && apt-get install -y --no-install-recommends git pkg-config \
+ && git clone -q --depth 1 --branch "$TRXVIZ_REF" https://github.com/tee-ar-ex/TRXViz.git /src \
+ && cd /src && cargo build --release --locked -p trxviz-cli \
+ && mkdir -p /opt/trxviz && cp target/release/trxviz-cli /opt/trxviz/ && rm -rf /src
+
+FROM trxviz-${TARGETARCH} AS trxviz
 
 # The tools QSIPrep's image builds from source, from its recipes
 # (github.com/PennLINC/qsiprep_build) at the same commits, on Debian instead of
@@ -353,6 +377,7 @@ COPY --from=afni /opt/afni /opt/afni
 COPY --from=c3d /opt/c3d /opt/c3d
 COPY --from=freesurfer /opt/freesurfer /opt/freesurfer
 COPY --from=synb0 /opt/synb0 /opt/synb0
+COPY --from=trxviz /opt/trxviz /opt/trxviz
 
 FROM ${BASE}
 ARG QSIPREP_REF
@@ -362,12 +387,15 @@ USER root
 
 # MRtrix3 3.0.4, the stable version QSIPrep's image pins, from Debian, which
 # builds it for both processors; the libraries DSI Studio and TORTOISE run on;
-# and tcsh, for AFNI's @compute_gcor.
+# tcsh, for AFNI's @compute_gcor; and pandoc, Xvfb with its fonts, Graphviz and
+# OpenGL, which QSIRecon's reports and citations use, as its image installs
+# them; and Mesa's CPU Vulkan driver (lavapipe), which TRXViz renders with.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends mrtrix3 libfftw3-double3 libfftw3-single3 \
       libboost-filesystem1.83.0 libboost-iostreams1.83.0 libboost-regex1.83.0 libboost-system1.83.0 \
       libgomp1 libqt5charts5 libqt5gui5t64 libqt5network5t64 libqt5opengl5t64 libqt5sql5t64 \
       libqt5svg5 libqt5widgets5t64 libglu1-mesa libgsl28 libqhull-r8.0 libqhull8.0 libexpat1 tcsh \
+      pandoc xvfb xfonts-base graphviz libgl1 mesa-vulkan-drivers libvulkan1 \
  && rm -rf /var/lib/apt/lists/*
 
 # MRtrix3 3.0.4's Python commands import imp and distutils, which Python 3.12
@@ -380,6 +408,11 @@ COPY --from=tools /opt/fsl /opt/fsl
 COPY --from=tools /opt/ants /opt/ants
 COPY --from=tools /opt/mrtrix3-dev /opt/mrtrix3-dev
 COPY --from=tools /opt/3Tissue /opt/3Tissue
+# MRtrix3Tissue's Python commands (ss3t_csd_beta1 and its copies of MRtrix3's)
+# are 3.0.4's, with the same two imports: the same fix.
+COPY docker/qsi/mrtrix3-python312.py /tmp/
+RUN python /tmp/mrtrix3-python312.py /opt/3Tissue && rm /tmp/mrtrix3-python312.py \
+ && /opt/3Tissue/bin/ss3t_csd_beta1 -help >/dev/null
 COPY --from=tools /opt/niimath /opt/niimath
 COPY --from=tools /src/TORTOISEV4 /src/TORTOISEV4
 COPY --from=tools /opt/dsi-studio /opt/dsi-studio
@@ -388,14 +421,16 @@ COPY --from=tools /opt/afni /opt/afni
 COPY --from=tools /opt/c3d /opt/c3d
 COPY --from=tools /opt/freesurfer /opt/freesurfer
 COPY --from=tools /opt/synb0 /opt/synb0
+COPY --from=tools /opt/trxviz /opt/trxviz
 # FSL's and ANTs' own folders go after the environment's, so that their Python
 # and libraries never shadow the notebooks'. FSL's commands are in its bin:
 # the wrappers its packages make in share/fsl/bin need post-link scripts, which
 # micromamba does not run.
 ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
-    PATH="$PATH:/opt/freesurfer/bin:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin:/opt/dsi-studio-chen" \
+    PATH="$PATH:/opt/freesurfer/bin:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin:/opt/dsi-studio-chen:/opt/trxviz" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
+    QSIRECON_AMICO_HOME=/home/qsirecon/.dipy AFQ_HOME=/home/qsirecon/AFQ_data \
     FREESURFER_HOME=/opt/freesurfer SYNB0_ATLASES=/opt/synb0/atlases \
     TF_USE_LEGACY_KERAS=1 TF_ENABLE_ONEDNN_OPTS=0 \
     AFNI_IMSAVE_WARNINGS=NO \
@@ -421,7 +456,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && pip install --no-cache-dir uv \
  && pip list --format=freeze > /tmp/constraints.txt \
  && git clone -q --depth 1 --branch "$QSIPREP_REF" https://github.com/PennLINC/qsiprep.git /tmp/qsiprep \
- && git clone -q --depth 1 --branch "$QSIRECON_REF" https://github.com/PennLINC/qsirecon.git /tmp/qsirecon \
+ && git clone -q --filter=blob:none https://github.com/PennLINC/qsirecon.git /tmp/qsirecon \
+ && git -C /tmp/qsirecon checkout -q "$QSIRECON_REF" \
  && uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
       --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon /wheels/mriqc-*.whl toml "surfa @ https://github.com/freesurfer/surfa/archive/c5687c456f89cf3d15583f0790ded7e22dd00b2f.zip" \
       "tensorflow-cpu==2.21.0; platform_machine == 'x86_64'" "tensorflow==2.21.0; platform_machine == 'aarch64'" tf-keras==2.21.0 \
@@ -435,10 +471,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && rm -rf /tmp/qsiprep /tmp/qsirecon /tmp/constraints.txt /tmp/overrides.txt /wheels \
  && python -c "import qsiprep, qsirecon, mriqc, surfa, tensorflow, tf_keras; \
       assert qsiprep.__version__ == '$QSIPREP_REF', qsiprep.__version__; \
-      assert qsirecon.__version__ == '$QSIRECON_REF', qsirecon.__version__; \
+      assert qsirecon.__version__.endswith('+g' + '$QSIRECON_REF'[:7]), qsirecon.__version__; \
       assert mriqc.__version__ == '$MRIQC_REF', mriqc.__version__; \
       assert not tensorflow.test.is_built_with_cuda()" \
- && for c in unpile mriqc synthstrip mri_synthstrip mri_synthseg; do command -v "$c" >/dev/null || exit 1; done \
+ && for c in unpile mriqc synthstrip mri_synthstrip mri_synthseg trxviz-cli; do command -v "$c" >/dev/null || exit 1; done \
  && test "$(/usr/lib/mrtrix3/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_STABLE_VERSION" \
  && test "$(/opt/mrtrix3-dev/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_DEV_VERSION" \
  && ! ldd /opt/dsi-studio/dsi_studio /opt/dsi-studio/dsi_studio_chen $(ls /src/TORTOISEV4/bin/TORTOISEProcess 2>/dev/null) /opt/3Tissue/bin/ss3t_csd_beta1 \
@@ -471,7 +507,10 @@ RUN python /opt/qsi/qsiprep-scripts/fetch_templates.py --tf-dir "$TEMPLATEFLOW_H
  && echo "5493db75ca94711595b6f746ea51c0f83097f8e09471f80fde1973e80714556e  b.tgz" | sha256sum -c - \
  && tar -xzf b.tgz && mv qsirecon_atlases /home/qsirecon/.cache/qsirecon/QSIReconAtlases \
  && rm -rf a.tgz b.tgz ._* \
- && mkdir -p "$DIPY_HOME" && (cd /opt/qsi/qsirecon-scripts && python set_up_amico.py) \
- && chmod -R a+rwX /opt/templateflow /opt/dipy && chmod -R a+rX /home/qsirecon /opt/freesurfer /opt/synb0
+ && mkdir -p "$DIPY_HOME" "$QSIRECON_AMICO_HOME" \
+ && (cd /opt/qsi/qsirecon-scripts && DIPY_HOME="$QSIRECON_AMICO_HOME" python set_up_amico.py \
+     && python fetch_afq_templates.py) \
+ && chmod -R a+rwX /opt/templateflow /opt/dipy && chmod -R a+rX /home/qsirecon /opt/freesurfer /opt/synb0 \
+ && trxviz-cli --help >/dev/null
 
 USER mri

@@ -14,9 +14,9 @@ dipy
 nipype
 asttokens
 python-dateutil
-# QSIRecon's pins come from pyAFQ 2.0 (DIPY 1.10) and AMICO 2.0.3 (numpy < 2):
-# their current releases match QSIPrep and this environment.
-pyafq>=3
+# QSIRecon pins AMICO 2.0.3, which caps numpy below 2: AMICO takes its current
+# release. (pyAFQ needs no override: QSIRecon's main pins 3.4, as this
+# environment has.)
 dmri-amico>=2.2
 # TensorFlow 2.21 caps h5py below 3.15.
 h5py

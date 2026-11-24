@@ -27,11 +27,20 @@ for tool in eddy_cpu topup bet flirt fslmaths \
     FSLBVecsToTORTOISEBmatrix TORTOISEBmatrixToFSLBVecs CreateGradientNonlinearityBMatrix \
     CreateNonlinearityDisplacementMap ComputeFAMap ComputeADMap ComputeRDMap ComputeLIMap \
     ComputeMAPMRI_NG ComputeMAPMRI_PA ComputeMAPMRI_RTOP \
-    qsiprep qsirecon mriqc recon_plot synthstrip mri_synthstrip mri_synthseg; do
+    qsiprep qsirecon mriqc trxviz-cli synthstrip mri_synthstrip mri_synthseg Xvfb pandoc dot; do
     command -v "$tool" >/dev/null || missing="$missing $tool"
 done
 echo "$missing" | tr ' ' '\n' | sed '/^$/d' > "${REPORTS:-$HOME}/missing.txt"
 if [ -n "$missing" ]; then echo "missing:$missing"; else echo "every tool is on PATH"; fi
+# Every MRtrix3 Python command (stable, dev, 3Tissue) starts: those of 3.0.4
+# and its forks import modules Python 3.12 removed.
+for dir in /usr/lib/mrtrix3/bin /opt/mrtrix3-dev/bin /opt/3Tissue/bin; do
+    for f in "$dir"/*; do
+        head -n 1 "$f" 2>/dev/null | grep -q '^#!.*python' || continue
+        "$f" -help >/dev/null 2>&1 || broken="${broken:-} $f"
+    done
+done
+echo "MRtrix3 Python commands that do not start:${broken:- none}"
 antsRegistration --version | head -1
 mrconvert -version | head -1
 # SynthStrip on the MNI template's head, against the template's own brain mask.
@@ -72,9 +81,10 @@ data=""
 # qsiprep-synthseg.xml, read with qsiprep.xml.
 synthseg=qsiprep/tests/test_interfaces_freesurfer.py::test_synthseg_interface
 for name in qsiprep qsirecon; do
-    version=$(python -c "import $name; print($name.__version__)")
+    # The tag, or the commit a development version names (+g<commit>).
+    ref=$(python -c "import re, $name; v = $name.__version__; m = re.search(r'\+g([0-9a-f]{7,})', v); print(m.group(1) if m else v)")
     rm -rf "$name"
-    git clone -q --depth 1 --branch "$version" "https://github.com/PennLINC/$name.git"
+    git clone -q --filter=blob:none "https://github.com/PennLINC/$name.git" && git -C "$name" checkout -q "$ref"
     grep -rl 'np\.row_stack(' "$name/$name" --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
     alone=""; [ "$name" = qsiprep ] && alone="--deselect $synthseg"
     (cd "$name" && python -m pytest "$name/tests" -n auto -q -p no:cacheprovider $data $alone \

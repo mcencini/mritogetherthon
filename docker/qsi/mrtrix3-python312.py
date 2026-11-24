@@ -5,7 +5,9 @@ distutils, for find_executable. MRtrix3 replaced both from 3.0.5 on; QSIPrep
 pins 3.0.4. The behaviour is unchanged: importlib finds and loads the same
 module, and shutil.which is what find_executable did.
 
-Usage: python mrtrix3-python312.py /usr/lib/mrtrix3
+MRtrix3Tissue's commands, a fork of the same release, have the same imports.
+
+Usage: python mrtrix3-python312.py /usr/lib/mrtrix3 (or /opt/3Tissue)
 """
 
 import re
