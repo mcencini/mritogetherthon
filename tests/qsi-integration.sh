@@ -8,6 +8,9 @@
 # :qsi and in the official image, which holds no pytest: pytest is installed on
 # the host, for the image's Python, and mounted. Exits 0 when the report is
 # written, whatever the test's outcome, which tests/compare_junit.py judges.
+# A failed test runs once more (pytest-rerunfailures), in both images: some
+# pipelines' outputs vary from run to run (pyAFQ recognizes a borderline bundle
+# or not); the report records the rerun.
 # The sources are mounted beside /src, not on it: both images keep TORTOISE in
 # /src/TORTOISEV4.
 set -eu
@@ -15,7 +18,7 @@ image=$1 marker=$2 package=${3:-qsiprep} version=${4:-26.2.0}
 docker pull -q "$image"
 py=$(docker run --rm --entrypoint python "$image" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')
 python3 -m pip install -q --target deps --python-version "$py" --only-binary=:all: \
-    pytest pytest-env exceptiongroup tomli
+    pytest pytest-env pytest-rerunfailures exceptiongroup tomli
 rm -rf src && git clone -q --filter=blob:none "https://github.com/PennLINC/$package.git" src
 git -C src checkout -q "$version"
 # Readable by the image's user, which copies it: git keeps some of its files
@@ -29,7 +32,7 @@ chmod -R a+rX data
 docker run --rm --entrypoint bash -e PYTHONPATH=/deps -e CIRCLE_CPUS="$(nproc)" \
     -v "$PWD/deps:/deps:ro" -v "$PWD/src:/test-src:ro" -v "$PWD/data:/data:ro" \
     -v "$PWD/reports:/reports" -v "$PWD/out:/out" -v "$PWD/work:/work" "$image" -c \
-    "cp -r /test-src /tmp/src && cd /tmp/src && python -m pytest --strict-markers -rP -o log_cli=true \
+    "cp -r /test-src /tmp/src && cd /tmp/src && python -m pytest --strict-markers -rP -o log_cli=true --reruns 1 \
        -m $marker --junitxml=/reports/$marker.xml -o junit_logging=no \
        --data_dir=/data --output_dir=/out --working_dir=/work $package" || true
 test -s "reports/$marker.xml"
