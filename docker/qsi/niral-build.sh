@@ -55,6 +55,16 @@ for name, (old, new) in pins.items():
     s = open(p).read()
     assert s.count(old) == 1, (name, old)
     open(p, 'w').write(s.replace(old, new))
+# TIFF 4.0.4's config.guess and config.sub (2008) predate arm64 Linux: CentOS 7's
+# automake ships newer ones (2013), copied over them before TIFF configures.
+import glob
+guess = sorted(glob.glob('/usr/share/automake-*/config.guess'))[-1]
+p = 'src/SuperBuild/External_TIFF.cmake'
+s = open(p).read()
+old = '    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR>\n'
+assert s.count(old) == 1, 'TIFF configure'
+s = s.replace(old, '    PATCH_COMMAND ${CMAKE_COMMAND} -E copy %s %s <SOURCE_DIR>/config/\n' % (guess, guess.replace('config.guess', 'config.sub')) + old)
+open(p, 'w').write(s)
 p = 'src/DTIPlaygroundTools.cmake'
 s = open(p).read()
 s, n = re.subn(r'install ?\((PROGRAMS|DIRECTORY) \$\{(MriWatcher|Trafic|AtlasWerks)_[A-Z_]+\}.*?\)\s*\n', '', s, flags=re.S)
