@@ -11,8 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ours, official]
-    runs-on: ubuntu-24.04
+        image: [ours]
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
@@ -23,7 +23,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           if [ ${{ matrix.image }} = ours ]; then
-            image=ghcr.io/mcencini/mritogetherthon-cache:qsi-${QSI_SHA}-amd64
+            image=ghcr.io/mcencini/mritogetherthon-cache:qsi-${QSI_SHA}-arm64
           else
             image=pennlinc/qsiprep:26.2.0
           fi
@@ -46,6 +46,6 @@ jobs:
                 f'{resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 2**20:.2f} GB')
           PY
           docker run --rm --entrypoint bash -v "$PWD/measure.py:/measure.py:ro" "$image" -c \
-            'python -c "import tensorflow as tf; print(\"tensorflow\", tf.__version__)" 2>/dev/null; ${QSIPREP_FREESURFER_PYTHON:-python} -c "import tensorflow as tf; print(\"synthseg tensorflow\", tf.__version__)" 2>/dev/null; python /measure.py'
+            'grep MemTotal /proc/meminfo; nproc; python -c "import tensorflow as tf; print(\"tensorflow\", tf.__version__)" 2>/dev/null; ${QSIPREP_FREESURFER_PYTHON:-python} -c "import tensorflow as tf; print(\"synthseg tensorflow\", tf.__version__)" 2>/dev/null; python /measure.py'
         env:
           QSI_SHA: 16d7ea19cc65af43beeb92131842f61fd713af8e
