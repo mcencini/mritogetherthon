@@ -177,8 +177,12 @@ RUN apt-get install -y --no-install-recommends \
 # bet2.cpp (docker/qsi/betokan), against FSL's libraries in /opt/fsl, which the
 # image ships; its output is identical to the original's, voxel for voxel, on
 # the volumes docker/qsi/betokan/test compares.
+# The commit is QSIPrep's (6108a894) with one fix, merged as PennLINC/
+# qsiprep_TORTOISE#6 and not yet in QSIPrep's image: a bounds check in
+# DRBUDDIBase::JacobianTransformImage, without which CPU DRBUDDI reads outside
+# the field and segfaults when a GRE fieldmap seed folds on an edge slice.
 FROM itk AS tortoise-amd64
-ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
+ARG TORTOISE_SHA=e0636091b1bcd9a7b5bc289c7a34fcbfb56a6920
 RUN export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /signed-char.flag)" \
  && rm -rf /src/TORTOISEV4/settings \
  && git clone -q https://github.com/PennLINC/qsiprep_TORTOISE.git /tmp/TORTOISEV4 \
@@ -192,7 +196,7 @@ RUN export CFLAGS="$(cat /signed-char.flag)" CXXFLAGS="-include stdint.h $(cat /
  && ! ldd /src/TORTOISEV4/bin/TORTOISEProcess | grep -q 'not found'
 
 FROM itk AS tortoise-arm64
-ARG TORTOISE_SHA=6108a894203d60b6cb9188107e5183b17af95b4a
+ARG TORTOISE_SHA=e0636091b1bcd9a7b5bc289c7a34fcbfb56a6920
 COPY --from=mamba /usr/local/bin/micromamba /usr/local/bin/micromamba
 COPY --from=fsl /opt/fsl /opt/fsl
 COPY docker/qsi/betokan /tmp/betokan
