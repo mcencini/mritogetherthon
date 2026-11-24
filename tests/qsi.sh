@@ -4,10 +4,10 @@
 # The tests run from the packages' sources, at the versions installed, patched
 # as the image patches them, with pytest installed in the running container only.
 # With the test data mounted at /data, the tests that need it run too.
-# Exits 1 when a tool is broken, 3 when one is missing (listed in missing.txt,
-# beside the reports), and 2 when the tools are there and some tests fail: which
-# of those failures count is for tests/compare_junit.py to say, against the
-# official images.
+# Runs every check and every test whatever fails before. Exits 3 when a tool is
+# missing or broken (listed in missing.txt and broken.txt, beside the reports),
+# 2 when the tools are there and some tests fail, which tests/compare_junit.py
+# judges against the official images, and 1 when the script itself fails.
 set -eu
 cd /tmp
 # Every program QSIPrep and QSIRecon call (their interfaces' commands, CPU
@@ -47,7 +47,7 @@ antsRegistration --version | head -1
 mrconvert -version | head -1
 # SynthStrip on the MNI template's head, against the template's own brain mask.
 # A failure is reported at the end, after the tests.
-python - <<'EOF' || broken="mri_synthstrip"
+python - <<'EOF' || broken="${broken:-} mri_synthstrip"
 import subprocess, tempfile
 import nibabel as nb
 from templateflow import api as tf
@@ -120,6 +120,8 @@ cp "$(python -I -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_
 (cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
     --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
     --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
-[ -z "${broken:-}" ] || { echo "broken: $broken"; exit 1; }
-[ -z "$missing" ] || { echo "missing:$missing"; exit 3; }
+echo "${broken:-}" | tr ' ' '\n' | sed '/^$/d' > "${REPORTS:-$HOME}/broken.txt"
+[ -z "${broken:-}" ] || echo "broken: $broken"
+[ -z "$missing" ] || echo "missing:$missing"
+[ -z "${broken:-}$missing" ] || exit 3
 [ -z "${status:-}" ] || exit 2

@@ -185,8 +185,9 @@ jobs:
         run: docker exec mritogetherthon python /tests/smoke.py
       - name: Run the day 1 notebook
         run: docker exec mritogetherthon python /tests/notebook.py /handson/day1/placenta_b_optimisation.ipynb
-      # Exit code 2 is tests that fail, and 3 programs missing: the compare job
-      # judges both, so that the integration tests run whatever they are.
+      # Exit code 2 is tests that fail, and 3 programs missing or checks failed:
+      # the compare job judges both, so that the integration tests run whatever
+      # they are, and one run shows every problem.
       - name: The tools, and QSIPrep's, QSIRecon's and MRIQC's unit tests
         run: docker exec mritogetherthon sh /tests/qsi.sh || { rc=$?; [ $rc -eq 2 ] || [ $rc -eq 3 ]; }
       - uses: actions/upload-artifact@v4
@@ -196,6 +197,7 @@ jobs:
           path: |
             work/*.xml
             work/missing.txt
+            work/broken.txt
       - name: Size
         if: always()
         run: docker image ls mritogetherthon
@@ -212,8 +214,12 @@ jobs:
   # The same tests, from the same sources, in the official images, so that a
   # failure the official image shares is not counted against ours: QSIPrep's and
   # QSIRecon's are published for amd64 only, MRIQC's for both.
+  # The official images' jobs run on pushes to the qsi branch, where their pins
+  # change; from main, the comparison reads their reports as saved in
+  # tests/reference (the images are pinned, and so are their results).
   baseline:
     needs: data
+    if: github.event_name != 'workflow_run'
     strategy:
       fail-fast: false
       matrix:
@@ -304,6 +310,7 @@ jobs:
 
   integration-official:
     needs: data
+    if: github.event_name != 'workflow_run'
     strategy:
       fail-fast: false
       matrix:
@@ -369,6 +376,7 @@ jobs:
 
   integration-recon-official:
     needs: data
+    if: github.event_name != 'workflow_run'
     strategy:
       fail-fast: false
       matrix:
@@ -406,7 +414,7 @@ jobs:
       matrix:
         arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
         modality: [T1w, bold]
-        image: [ours, official]
+        image: ${{ fromJSON(github.event_name == 'workflow_run' && '["ours"]' || '["ours", "official"]') }}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 180
     steps:
@@ -453,6 +461,9 @@ jobs:
         with:
           path: junit
           pattern: junit-*
+      - name: The official images' reports, as saved, from main
+        if: github.event_name == 'workflow_run'
+        run: cp -r tests/reference/junit-official-* junit/
       - name: Tests that fail in ours but pass in the official image
         run: |
           status=0
@@ -463,6 +474,10 @@ jobs:
             if [ -s junit/junit-ours-$arch/missing.txt ]; then
               echo "== $arch: programs missing:"; cat junit/junit-ours-$arch/missing.txt; status=1
             fi
+            if [ -s junit/junit-ours-$arch/broken.txt ]; then
+              echo "== $arch: checks failed:"; cat junit/junit-ours-$arch/broken.txt; status=1
+            fi
+            [ -f junit/junit-ours-$arch/broken.txt ] || { echo "== $arch: the checks did not run"; status=1; }
             for name in qsiprep qsirecon mriqc; do
               # The official image of the same architecture, or amd64's, the only one published
               official=junit/junit-official-$name-$arch
