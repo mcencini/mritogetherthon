@@ -1,0 +1,8 @@
+# DTIPlayground looks for its compiled tools in $DTIPLAYGROUNDTOOLS, and
+# configures itself without a question, using the image's FSL ($FSLDIR), when
+# this file is there. NIRAL's compiled tools (dtiestim, DTI-Reg, BRAINSFit,
+# ImageMath, ...) are not in this image: the modules that call them
+# (DTI_Register, BRAIN_Tractography, and DTI_Estimate's dtiestim method) report
+# them missing. ANTs/ points to the image's ANTs.
+name: dtiplayground-tools
+version: none

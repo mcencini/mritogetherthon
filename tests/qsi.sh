@@ -27,7 +27,8 @@ for tool in eddy_cpu topup bet flirt fslmaths \
     FSLBVecsToTORTOISEBmatrix TORTOISEBmatrixToFSLBVecs CreateGradientNonlinearityBMatrix \
     CreateNonlinearityDisplacementMap ComputeFAMap ComputeADMap ComputeRDMap ComputeLIMap \
     ComputeMAPMRI_NG ComputeMAPMRI_PA ComputeMAPMRI_RTOP \
-    qsiprep qsirecon mriqc trxviz-cli synthstrip mri_synthstrip mri_synthseg Xvfb pandoc dot; do
+    qsiprep qsirecon mriqc trxviz-cli synthstrip mri_synthstrip mri_synthseg Xvfb pandoc dot \
+    dmriplayground dmriprep eddy_quad; do
     command -v "$tool" >/dev/null || missing="$missing $tool"
 done
 echo "$missing" | tr ' ' '\n' | sed '/^$/d' > "${REPORTS:-$HOME}/missing.txt"
@@ -74,6 +75,11 @@ found = bids.BIDSLayout(root, validate=False).get(subject='01', datatype='dwi', 
 print(f'pybids {bids.__version__}, dataset under motion/: {len(found)} diffusion image')
 assert len(found) == 1
 EOF
+# DTIPlayground configures itself without a question, with the image's FSL.
+home=$(mktemp -d)
+HOME="$home" dmriplayground init </dev/null >/dev/null 2>&1 || true
+grep -q "path: $FSLDIR" "$home/.niral-dti/global_variables.yml" 2>/dev/null \
+    && echo "DTIPlayground configured with $FSLDIR" || broken="${broken:-} dtiplayground-init"
 pip install -q --user pytest pytest-xdist pytest-env
 data=""
 [ -d /data ] && data="--data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work" \
@@ -120,6 +126,12 @@ cp "$(python -I -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_
 (cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
     --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
     --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
+# DTIPlayground's tests, from its tag, at the version installed.
+version=$(python -c 'from importlib.metadata import version; print(version("dtiplayground"))')
+rm -rf dtiplayground
+git clone -q --depth 1 --branch "v$version" https://github.com/NIRALUser/DTIPlayground.git dtiplayground
+(cd dtiplayground && HOME=$(mktemp -d) python -m pytest tests -q -p no:cacheprovider \
+    --junitxml="${REPORTS:-$HOME}/dtiplayground.xml") || status=1
 echo "${broken:-}" | tr ' ' '\n' | sed '/^$/d' > "${REPORTS:-$HOME}/broken.txt"
 [ -z "${broken:-}" ] || echo "broken: $broken"
 [ -z "$missing" ] || echo "missing:$missing"

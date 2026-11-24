@@ -229,6 +229,8 @@ jobs:
           - {name: qsirecon, org: PennLINC, ref: 5c71312ddf901ad4add2b8f9146c344ba6bc3ae6, arch: amd64, image: "pennlinc/qsirecon@sha256:8477caed377b165f10a7a3963a7b968fa7611b0aa3ffc473d70dde880a22cbc8"}
           - {name: mriqc, org: nipreps, ref: 26.1.1, arch: amd64}
           - {name: mriqc, org: nipreps, ref: 26.1.1, arch: arm64}
+          # DTIPlayground's own image of the release ours installs (amd64 only)
+          - {name: dtiplayground, org: NIRALUser, ref: v0.9.14, arch: amd64, image: "niraluser/dtiplayground@sha256:a097df0a29c9dcdd7cf2b130b5a5c2d6e3317638a14b8f2e129e26f661d0e977"}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
@@ -254,11 +256,13 @@ jobs:
             pytest pytest-xdist pytest-env toml exceptiongroup tomli
           git clone -q --filter=blob:none https://github.com/${{ matrix.org }}/${{ matrix.name }}.git src
           git -C src checkout -q ${{ matrix.ref }}
+          chmod -R a+rX src
           mkdir reports && chmod a+w reports && chmod -R a+rwX data
           case ${{ matrix.name }} in
             mriqc) tests='cp "$(python -I -c "import mriqc, os; print(os.path.dirname(mriqc.__file__))")/_version.py" mriqc/ && \
                      python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
                        --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py' ;;
+            dtiplayground) tests='HOME=$(mktemp -d) python -m pytest tests -q -p no:cacheprovider' ;;
             *) tests='mkdir -p /tmp/qsi-out /tmp/qsi-work && python -m pytest ${{ matrix.name }}/tests -n auto -q \
                      -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work' ;;
           esac
@@ -478,7 +482,7 @@ jobs:
               echo "== $arch: checks failed:"; cat junit/junit-ours-$arch/broken.txt; status=1
             fi
             [ -f junit/junit-ours-$arch/broken.txt ] || { echo "== $arch: the checks did not run"; status=1; }
-            for name in qsiprep qsirecon mriqc; do
+            for name in qsiprep qsirecon mriqc dtiplayground; do
               # The official image of the same architecture, or amd64's, the only one published
               official=junit/junit-official-$name-$arch
               [ -d "$official" ] || official=junit/junit-official-$name-amd64

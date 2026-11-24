@@ -42,6 +42,15 @@ RUN micromamba create -y -p /opt/fsl \
       fsl-eddy=2602.0 \
  && micromamba clean -a -y
 
+# FSL's eddy QC (eddy_quad), which DTIPlayground runs: Python, added on top of
+# the FSL above with every package of it kept, so that what TORTOISE links on
+# arm64 is unchanged.
+FROM fsl AS fsl-qc
+RUN micromamba install -y -p /opt/fsl --freeze-installed \
+      -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public -c conda-forge \
+      fsl-eddy_qc=v1.4.2 \
+ && micromamba clean -a -y && /opt/fsl/bin/eddy_quad --help >/dev/null
+
 # ANTs 2.6: conda-forge's build on amd64; built from source on arm64, for which
 # neither conda-forge nor ANTs publishes one, with MRIQC's patch for plain char
 # in antsApplyTransforms (ANTsX/ANTs#2032, after v2.6.5).
@@ -367,7 +376,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 
 # The tools, built apart so that their (long) builds are cached on their own.
 FROM scratch AS tools
-COPY --from=fsl /opt/fsl /opt/fsl
+COPY --from=fsl-qc /opt/fsl /opt/fsl
 COPY --from=ants /opt/ants /opt/ants
 COPY --from=unpile /wheels /wheels
 COPY --from=mriqc-wheel /wheels /wheels
@@ -437,6 +446,7 @@ ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     PATH="$PATH:/opt/freesurfer/bin:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin:/opt/dsi-studio-chen:/opt/trxviz" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
     QSIRECON_AMICO_HOME=/home/qsirecon/.dipy AFQ_HOME=/home/qsirecon/AFQ_data \
+    DTIPLAYGROUNDTOOLS=/opt/dtiplayground-tools \
     FREESURFER_HOME=/opt/freesurfer SYNB0_ATLASES=/opt/synb0/atlases \
     TF_USE_LEGACY_KERAS=1 TF_ENABLE_ONEDNN_OPTS=0 \
     AFNI_IMSAVE_WARNINGS=NO \
@@ -466,7 +476,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && git -C /tmp/qsirecon checkout -q "$QSIRECON_REF" \
  && uv pip install --system --no-cache --find-links /wheels --constraints /tmp/constraints.txt \
       --overrides /tmp/overrides.txt /tmp/qsiprep /tmp/qsirecon /wheels/mriqc-*.whl toml "surfa @ https://github.com/freesurfer/surfa/archive/c5687c456f89cf3d15583f0790ded7e22dd00b2f.zip" \
-      "tensorflow-cpu==2.21.0; platform_machine == 'x86_64'" "tensorflow==2.21.0; platform_machine == 'aarch64'" tf-keras==2.21.0 \
+      "tensorflow-cpu==2.21.0; platform_machine == 'x86_64'" "tensorflow==2.21.0; platform_machine == 'aarch64'" tf-keras==2.21.0 dtiplayground==0.9.14 \
  && SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") \
  && grep -rl 'np\.row_stack(' "$SITE/qsiprep" "$SITE/qsirecon" --include='*.py' \
       | xargs sed -i 's/np\.row_stack(/np.vstack(/g' \
@@ -486,6 +496,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && ! ldd /opt/dsi-studio/dsi_studio /opt/dsi-studio/dsi_studio_chen $(ls /src/TORTOISEV4/bin/TORTOISEProcess 2>/dev/null) /opt/3Tissue/bin/ss3t_csd_beta1 \
         /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
         /opt/afni/bin/3dresample /opt/afni/bin/3dTqual | grep 'not found'
+
+# DTIPlayground's tools folder: what it needs to configure itself, in the
+# attendee's ~/.niral-dti, without a question and without downloading FSL or
+# NIRAL's tools there (dtiplayground-tools-info.yml).
+COPY docker/qsi/dtiplayground-tools-info.yml /opt/dtiplayground-tools/info.yml
+RUN ln -s /opt/ants /opt/dtiplayground-tools/ANTs && test -f "$FSLDIR/etc/fslversion"
 
 # pybids reads a file's datatype from the folder that holds it only, as the
 # official images' pybids does for every dataset laid out as BIDS says
