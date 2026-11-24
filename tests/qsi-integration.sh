@@ -18,6 +18,9 @@ python3 -m pip install -q --target deps --python-version "$py" --only-binary=:al
     pytest pytest-env exceptiongroup tomli
 rm -rf src && git clone -q --filter=blob:none "https://github.com/PennLINC/$package.git" src
 git -C src checkout -q "$version"
+# Readable by the image's user, which copies it: git keeps some of its files
+# for their owner only.
+chmod -R a+rX src
 # As the :qsi image edits its installed copy (numpy 2 removed np.row_stack).
 grep -rl 'np\.row_stack(' "src/$package" --include='*.py' | xargs -r sed -i 's/np\.row_stack(/np.vstack(/g'
 mkdir -p reports out work && chmod a+rwx reports out work
