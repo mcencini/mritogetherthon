@@ -406,7 +406,17 @@ COPY --from=c3d /opt/c3d /opt/c3d
 COPY --from=freesurfer /opt/freesurfer /opt/freesurfer
 COPY --from=synb0 /opt/synb0 /opt/synb0
 COPY --from=trxviz /opt/trxviz /opt/trxviz
-COPY --from=niral /opt/dtiplayground-tools /opt/dtiplayground-tools
+# (teem's unu, which only DTIPlayground's atlas builder calls, links a libpng
+# this image does not have: left out, with the atlas builder, which needs
+# NIRAL's GreedyAtlas too.)
+COPY --from=niral /opt/dtiplayground-tools/info.yml /opt/dtiplayground-tools/info.yml
+COPY --from=niral /opt/dtiplayground-tools/DTIProcess /opt/dtiplayground-tools/DTIProcess
+COPY --from=niral /opt/dtiplayground-tools/DTI-Reg /opt/dtiplayground-tools/DTI-Reg
+COPY --from=niral /opt/dtiplayground-tools/BRAINSTools /opt/dtiplayground-tools/BRAINSTools
+COPY --from=niral /opt/dtiplayground-tools/ResampleDTIlogEuclidean /opt/dtiplayground-tools/ResampleDTIlogEuclidean
+COPY --from=niral /opt/dtiplayground-tools/ITKTransformTools /opt/dtiplayground-tools/ITKTransformTools
+COPY --from=niral /opt/dtiplayground-tools/niral_utilities /opt/dtiplayground-tools/niral_utilities
+COPY --from=niral /opt/dtiplayground-tools/ANTs /opt/dtiplayground-tools/ANTs
 
 FROM ${BASE}
 ARG QSIPREP_REF

@@ -80,14 +80,19 @@ home=$(mktemp -d)
 HOME="$home" dmriplayground init </dev/null >/dev/null 2>&1 || true
 grep -q "path: $FSLDIR" "$home/.niral-dti/global_variables.yml" 2>/dev/null \
     && echo "DTIPlayground configured with $FSLDIR" || broken="${broken:-} dtiplayground-init"
-# NIRAL's tools, which DTIPlayground finds through DTIPLAYGROUNDTOOLS: each starts.
+# NIRAL's tools, which DTIPlayground finds through DTIPLAYGROUNDTOOLS: each
+# starts (they answer --help in their own ways, some by failing on it as a file
+# name: what counts is that the program loads and runs).
 for p in DTIProcess/bin/dtiprocess DTIProcess/bin/dtiestim DTIProcess/bin/dtiaverage DTIProcess/bin/fiberprocess \
          DTI-Reg/bin/DTI-Reg BRAINSTools/bin/BRAINSFit BRAINSTools/bin/BRAINSDemonWarp \
          ResampleDTIlogEuclidean/bin/ResampleDTIlogEuclidean ITKTransformTools/bin/ITKTransformTools \
-         niral_utilities/bin/ImageMath niral_utilities/bin/CropDTI teem/bin/unu \
+         niral_utilities/bin/ImageMath niral_utilities/bin/CropDTI \
          ANTs/bin/ANTS ANTs/bin/WarpImageMultiTransform ANTs/bin/WarpTensorImageMultiTransform; do
-    out=$("$DTIPLAYGROUNDTOOLS/$p" --help 2>&1 | head -c 2000) || true
-    echo "$out" | grep -qiE 'usage|description|option' || broken="${broken:-} $p"
+    out=$("$DTIPLAYGROUNDTOOLS/$p" --help 2>&1); rc=$?
+    if [ ! -x "$DTIPLAYGROUNDTOOLS/$p" ] || [ $rc -ge 126 ] && [ $rc -ne 134 ] \
+        || echo "$out" | grep -qiE 'error while loading shared libraries|exec format error|cannot execute|illegal instruction|segmentation fault'; then
+        broken="${broken:-} $p"
+    fi
 done
 pip install -q --user pytest pytest-xdist pytest-env
 data=""
