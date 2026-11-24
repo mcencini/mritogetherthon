@@ -1,5 +1,5 @@
-# Throwaway: mri_synthseg's own output in the image run 45352132514 pushed.
-name: Debug SynthSeg
+# Throwaway: does pybids read a parent folder named "motion" as the datatype?
+name: Debug pybids
 on:
   push:
     branches: [qsi-debug]
@@ -7,11 +7,9 @@ permissions:
   contents: read
   packages: read
 jobs:
-  synthseg:
+  pybids:
     runs-on: ubuntu-24.04
     steps:
-      - name: Free disk space
-        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -20,10 +18,16 @@ jobs:
       - run: |
           image=ghcr.io/mcencini/mritogetherthon-cache:qsi-2e49aa1a09eddb5597d7078666f419df995d7cfb-amd64
           docker pull -q "$image"
-          docker run --rm --entrypoint bash "$image" -c '
-            pip list 2>/dev/null | grep -iE "^(tensorflow|tf.keras|keras|numpy|surfa|h5py|ml.dtypes) "
-            t1=/opt/templateflow/tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-02_T1w.nii.gz
-            cd /tmp && curl -fsSL -o /tmp/mri_synthseg https://raw.githubusercontent.com/freesurfer/freesurfer/f7770fb85802b8be860ae7a115565116f03e82d0/mri_synthseg/mri_synthseg
-            echo "8195fd044b369cb8ed3981e3dcaf30b78fde045e0489f85c085eeeb40b0be1ae  /tmp/mri_synthseg" | sha256sum -c -
-            python /tmp/mri_synthseg --cpu --threads 1 --i $t1 --o seg.nii.gz --post post.nii.gz --qc qc.csv; echo "exit $?"
-            ls -la /tmp; cat /tmp/qc.csv; python -c "import nibabel as nb, numpy as np; d=nb.load(\"/tmp/seg.nii.gz\").get_fdata(); print(d.shape, len(np.unique(d)), \"labels\")"'
+          docker run --rm --entrypoint python "$image" -c '
+          import bids, json, os
+          print("pybids", bids.__version__)
+          for parent in ("motion", "other", "dwi"):
+              root = f"/tmp/{parent}/ds"
+              os.makedirs(f"{root}/sub-01/dwi")
+              json.dump({"Name": "x", "BIDSVersion": "1.8.0"}, open(f"{root}/dataset_description.json", "w"))
+              open(f"{root}/sub-01/dwi/sub-01_dwi.nii.gz", "w").close()
+              layout = bids.BIDSLayout(root, validate=False)
+              f = layout.get(subject="01", extension=".nii.gz")
+              print(parent, [(x.entities.get("datatype"), x.entities.get("suffix")) for x in f],
+                    "dwi found:", len(layout.get(subject="01", datatype="dwi", suffix="dwi", extension=".nii.gz")))
+          '
