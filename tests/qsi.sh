@@ -4,24 +4,34 @@
 # The tests run from the packages' sources, at the versions installed, patched
 # as the image patches them, with pytest installed in the running container only.
 # With the test data mounted at /data, the tests that need it run too.
-# Exits 1 when a tool is missing or broken, and 2 when the tools work and some
-# tests fail: which of those failures count is for tests/compare_junit.py to say,
-# against the official images.
+# Exits 1 when a tool is broken, 3 when one is missing (listed in missing.txt,
+# beside the reports), and 2 when the tools are there and some tests fail: which
+# of those failures count is for tests/compare_junit.py to say, against the
+# official images.
 set -eu
 cd /tmp
-for tool in eddy_cpu topup bet flirt fslmaths antsRegistration antsApplyTransforms \
-    N4BiasFieldCorrection mrconvert dwidenoise mrdegibbs dwi2tensor dwibiascorrect \
+# Every program QSIPrep and QSIRecon call (their interfaces' commands, CPU
+# builds), and FSL's QSIPrep runs. A missing one is reported with the others,
+# and fails the script once the tests have run, so that one run tells all. TORTOISE's DIFFPREP is a stage
+# of TORTOISEProcess, not a program of its own.
+missing=""
+for tool in eddy_cpu topup bet flirt fslmaths \
+    antsRegistration antsApplyTransforms antsMultivariateTemplateConstruction2.sh \
+    N4BiasFieldCorrection ImageMath CompositeTransformUtil ConvertTransformFile \
+    mrconvert mrinfo mrcalc mrtransform transformconvert dwidenoise mrdegibbs dwi2tensor \
+    dwi2fod dwibiascorrect mtnormalise tckglobal tcksift2 tck2connectome connectome2tck \
     dwidenoise2 ss3t_csd_beta1 niimath svht_denoise unpile \
-    dsi_studio 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask 3dTsplit4D \
-    3dvolreg 3dTqual 3dToutcount 3dDespike 3dFWHMx @compute_gcor c3d_affine_tool \
-    qsiprep qsirecon mriqc synthstrip mri_synthstrip mri_synthseg; do
-    command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
+    dsi_studio dsi_studio_chen 3dresample 3dcalc 3dAutobox 3dTstat 3dTcat 3dWarp 3dAutomask \
+    3dTsplit4D 3dvolreg 3dTqual 3dToutcount 3dDespike 3dFWHMx @compute_gcor c3d_affine_tool \
+    TORTOISEProcess DRBUDDI CreateMask SelectBestB0 Gibbs EstimateTensor EstimateMAPMRI \
+    FSLBVecsToTORTOISEBmatrix TORTOISEBmatrixToFSLBVecs CreateGradientNonlinearityBMatrix \
+    CreateNonlinearityDisplacementMap ComputeFAMap ComputeADMap ComputeRDMap ComputeLIMap \
+    ComputeMAPMRI_NG ComputeMAPMRI_PA ComputeMAPMRI_RTOP \
+    qsiprep qsirecon mriqc recon_plot synthstrip mri_synthstrip mri_synthseg; do
+    command -v "$tool" >/dev/null || missing="$missing $tool"
 done
-# TORTOISE's DIFFPREP is a stage of TORTOISEProcess, not a program of its own.
-for tool in TORTOISEProcess DRBUDDI CreateMask; do
-    command -v "$tool" >/dev/null || { echo "missing: $tool"; exit 1; }
-done
-echo "every tool is on PATH"
+echo "$missing" | tr ' ' '\n' | sed '/^$/d' > "${REPORTS:-$HOME}/missing.txt"
+if [ -n "$missing" ]; then echo "missing:$missing"; else echo "every tool is on PATH"; fi
 antsRegistration --version | head -1
 mrconvert -version | head -1
 # SynthStrip on the MNI template's head, against the template's own brain mask.
@@ -60,4 +70,5 @@ cp "$(python -I -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_
 (cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
     --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
     --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
+[ -z "$missing" ] || { echo "missing:$missing"; exit 3; }
 [ -z "${status:-}" ] || exit 2

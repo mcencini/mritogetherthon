@@ -80,7 +80,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
-        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, afni, freesurfer, synb0]
+        tool: [fsl, ants, unpile, mriqc-wheel, mrtrix3dev, tissue3, niimath, tortoise, c3d, dsistudio, dsistudiochen, afni, freesurfer, synb0]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 300
     steps:
@@ -128,7 +128,7 @@ jobs:
         run: |
           {
             echo "from<<EOF"
-            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio afni freesurfer synb0 image; do
+            for tool in fsl ants unpile mriqc-wheel mrtrix3dev tissue3 niimath tortoise c3d dsistudio dsistudiochen afni freesurfer synb0 image; do
               echo "type=registry,ref=$CACHE:$tool-${{ matrix.arch }}"
             done
             echo "EOF"
@@ -152,20 +152,23 @@ jobs:
           mkdir work
           docker run -d --name mritogetherthon -p 127.0.0.1:8899:8888 \
             --user "$(id -u):$(id -g)" -e JUPYTER_TOKEN=smoke \
-            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/data:/data:ro" mritogetherthon
+            -v "$PWD/work:/home/mri" -v "$PWD/tests:/tests:ro" -v "$PWD/data:/data" mritogetherthon
           for i in $(seq 60); do curl -fs -o /dev/null http://127.0.0.1:8899/api && break; sleep 2; done
       - name: Check the setup
         run: docker exec mritogetherthon check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
-      # Exit code 2 is tests that fail: the compare job says which of those count.
+      # Exit code 2 is tests that fail, and 3 programs missing: the compare job
+      # judges both, so that the integration tests run whatever they are.
       - name: The tools, and QSIPrep's, QSIRecon's and MRIQC's unit tests
-        run: docker exec mritogetherthon sh /tests/qsi.sh || [ $? -eq 2 ]
+        run: docker exec mritogetherthon sh /tests/qsi.sh || { rc=$?; [ $rc -eq 2 ] || [ $rc -eq 3 ]; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: junit-ours-${{ matrix.arch }}
-          path: work/*.xml
+          path: |
+            work/*.xml
+            work/missing.txt
       - name: Size
         if: always()
         run: docker image ls mritogetherthon
@@ -215,7 +218,7 @@ jobs:
           python3 -m pip install -q --target deps --python-version "$py" --only-binary=:all: \
             pytest pytest-xdist pytest-env toml exceptiongroup tomli
           git clone -q --depth 1 --branch ${{ matrix.ref }} https://github.com/${{ matrix.org }}/${{ matrix.name }}.git src
-          mkdir reports && chmod a+w reports
+          mkdir reports && chmod a+w reports && chmod -R a+rwX data
           case ${{ matrix.name }} in
             mriqc) tests='cp "$(python -I -c "import mriqc, os; print(os.path.dirname(mriqc.__file__))")/_version.py" mriqc/ && \
                      python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
@@ -224,7 +227,7 @@ jobs:
                      -p no:cacheprovider --data_dir=/data --output_dir=/tmp/qsi-out --working_dir=/tmp/qsi-work' ;;
           esac
           docker run --rm --entrypoint bash -e PYTHONPATH=/deps \
-            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data:ro" "$image" -c \
+            -v "$PWD/deps:/deps:ro" -v "$PWD/src:/src:ro" -v "$PWD/reports:/reports" -v "$PWD/data:/data" "$image" -c \
             "cp -r /src /tmp/src && cd /tmp/src && $tests --junitxml=/reports/${{ matrix.name }}.xml" || true
           test -s reports/${{ matrix.name }}.xml
       - uses: actions/upload-artifact@v4
@@ -325,6 +328,9 @@ jobs:
           compare() { python tests/compare_junit.py --expected tests/qsi-expected.txt "$@" || status=1; }
           for arch in amd64 arm64; do
             [ -d junit/junit-ours-$arch ] || { echo "== $arch: not built in this run"; continue; }
+            if [ -s junit/junit-ours-$arch/missing.txt ]; then
+              echo "== $arch: programs missing:"; cat junit/junit-ours-$arch/missing.txt; status=1
+            fi
             for name in qsiprep qsirecon mriqc; do
               # The official image of the same architecture, or amd64's, the only one published
               official=junit/junit-official-$name-$arch
@@ -332,16 +338,17 @@ jobs:
               echo "== $name, ours on $arch, official on ${official##*-}"
               compare --ours junit/junit-ours-$arch/$name.xml --official "$official/$name.xml"
             done
+            # They score themselves against the simulation's truth: each must pass
+            # in ours. The official image's outcomes are shown alongside.
             echo "== QSIPrep's integration tests, ours on $arch, official on amd64"
             ours=""; official=""
             for m in $markers; do
-              for f in junit/junit-ours-int-$m-$arch/$m.xml junit/junit-official-int-$m-amd64/$m.xml; do
-                [ -s "$f" ] || { echo "missing: $f"; status=1; }
-              done
+              f=junit/junit-ours-int-$m-$arch/$m.xml
+              [ -s "$f" ] || { echo "missing: $f"; status=1; }
               ours="$ours junit/junit-ours-int-$m-$arch/$m.xml"
               official="$official junit/junit-official-int-$m-amd64/$m.xml"
             done
-            compare --ours $ours --official $official
+            compare --all-must-pass --ours $ours --official $official
           done
           exit $status
       - name: Truth scores

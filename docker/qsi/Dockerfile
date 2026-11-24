@@ -222,6 +222,30 @@ RUN apt-get install -y --no-install-recommends \
  && unzip -q "$ATLAS_SHA.zip" && rm "$ATLAS_SHA.zip" \
  && rm -rf "atlas-$ATLAS_SHA/.git" && mv "atlas-$ATLAS_SHA" atlas
 
+# The second DSI Studio QSIRecon calls, as dsi_studio_chen (autotrack), at the
+# commits QSIRecon's image builds it from, laid out as there: the program next
+# to the first one's, and its own folder (with its atlas) apart.
+FROM builder AS dsistudiochen
+ARG DSI_SHA=b7b1f10d6c9599983352050a923a10da4888a30c
+ARG TIPL_SHA=3e2a371f47a994d162055675617d7488895eca2a
+ARG ATLAS_SHA=e4c2549c42f1858913de7269eac827cc64ae3d29
+RUN apt-get install -y --no-install-recommends \
+      libboost-all-dev libglu1-mesa-dev libqt5charts5-dev libqt5opengl5-dev qtbase5-dev qt5-qmake \
+ && mkdir -p /tmp/chen /opt/dsi-studio /opt/dsi-studio-chen && cd /tmp/chen \
+ && curl -fsSLO "https://github.com/frankyeh/DSI-Studio/archive/$DSI_SHA.zip" \
+ && unzip -q "$DSI_SHA.zip" && mv "DSI-Studio-$DSI_SHA" src && rm "$DSI_SHA.zip" \
+ && curl -fsSLO "https://github.com/frankyeh/TIPL/archive/$TIPL_SHA.zip" \
+ && unzip -q "$TIPL_SHA.zip" && mv "TIPL-$TIPL_SHA" src/TIPL && rm "$TIPL_SHA.zip" \
+ && mkdir build && cd build \
+ && qmake ../src QMAKE_CFLAGS+="$(cat /signed-char.flag)" \
+      QMAKE_CXXFLAGS+="-include cstdint $(cat /signed-char.flag)" \
+ && make -j"$(nproc)" \
+ && mv dsi_studio /opt/dsi-studio/dsi_studio_chen && chmod 755 /opt/dsi-studio/dsi_studio_chen \
+ && cd /opt/dsi-studio-chen && rm -rf /tmp/chen \
+ && curl -fsSLO "https://github.com/frankyeh/DSI-Studio-atlas/archive/$ATLAS_SHA.zip" \
+ && unzip -q "$ATLAS_SHA.zip" && rm "$ATLAS_SHA.zip" \
+ && rm -rf "atlas-$ATLAS_SHA/.git" && mv "atlas-$ATLAS_SHA" atlas
+
 # AFNI: the programs QSIPrep's image ships (3dresample, 3dcalc, 3dAutobox and
 # the others its workflows call) and those MRIQC's ships, built from source at
 # QSIPrep's tag, statically, without the GUI, SUMA, Python or R, as MRIQC builds
@@ -323,6 +347,8 @@ COPY --from=niimath /opt/niimath /opt/niimath
 COPY --from=tortoise /src/TORTOISEV4/bin /src/TORTOISEV4/bin
 COPY --from=tortoise /src/TORTOISEV4/settings /src/TORTOISEV4/settings
 COPY --from=dsistudio /opt/dsi-studio /opt/dsi-studio
+COPY --from=dsistudiochen /opt/dsi-studio/dsi_studio_chen /opt/dsi-studio/dsi_studio_chen
+COPY --from=dsistudiochen /opt/dsi-studio-chen /opt/dsi-studio-chen
 COPY --from=afni /opt/afni /opt/afni
 COPY --from=c3d /opt/c3d /opt/c3d
 COPY --from=freesurfer /opt/freesurfer /opt/freesurfer
@@ -357,6 +383,7 @@ COPY --from=tools /opt/3Tissue /opt/3Tissue
 COPY --from=tools /opt/niimath /opt/niimath
 COPY --from=tools /src/TORTOISEV4 /src/TORTOISEV4
 COPY --from=tools /opt/dsi-studio /opt/dsi-studio
+COPY --from=tools /opt/dsi-studio-chen /opt/dsi-studio-chen
 COPY --from=tools /opt/afni /opt/afni
 COPY --from=tools /opt/c3d /opt/c3d
 COPY --from=tools /opt/freesurfer /opt/freesurfer
@@ -367,7 +394,7 @@ COPY --from=tools /opt/synb0 /opt/synb0
 # micromamba does not run.
 ENV FSLDIR=/opt/fsl FSLOUTPUTTYPE=NIFTI_GZ FSLMULTIFILEQUIT=TRUE \
     ANTSPATH=/opt/ants/bin \
-    PATH="$PATH:/opt/freesurfer/bin:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin" \
+    PATH="$PATH:/opt/freesurfer/bin:/opt/c3d/bin:/opt/afni/bin:/opt/dsi-studio:/opt/ants/bin:/opt/fsl/bin:/opt/niimath/bin:/src/TORTOISEV4/bin:/opt/mrtrix3-dev/bin:/opt/3Tissue/bin:/opt/dsi-studio-chen" \
     TEMPLATEFLOW_HOME=/opt/templateflow DIPY_HOME=/opt/dipy \
     FREESURFER_HOME=/opt/freesurfer SYNB0_ATLASES=/opt/synb0/atlases \
     TF_USE_LEGACY_KERAS=1 TF_ENABLE_ONEDNN_OPTS=0 \
@@ -412,7 +439,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
  && for c in unpile mriqc synthstrip mri_synthstrip mri_synthseg; do command -v "$c" >/dev/null || exit 1; done \
  && test "$(/usr/lib/mrtrix3/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_STABLE_VERSION" \
  && test "$(/opt/mrtrix3-dev/bin/mrinfo -version | head -1 | awk '{print $3}')" = "$MRTRIX3_DEV_VERSION" \
- && ! ldd /opt/dsi-studio/dsi_studio $(ls /src/TORTOISEV4/bin/TORTOISEProcess 2>/dev/null) /opt/3Tissue/bin/ss3t_csd_beta1 \
+ && ! ldd /opt/dsi-studio/dsi_studio /opt/dsi-studio/dsi_studio_chen $(ls /src/TORTOISEV4/bin/TORTOISEProcess 2>/dev/null) /opt/3Tissue/bin/ss3t_csd_beta1 \
         /opt/mrtrix3-dev/bin/dwidenoise2 /opt/niimath/bin/niimath /opt/c3d/bin/c3d_affine_tool \
         /opt/afni/bin/3dresample /opt/afni/bin/3dTqual | grep 'not found'
 
