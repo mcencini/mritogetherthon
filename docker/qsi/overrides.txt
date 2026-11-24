@@ -7,7 +7,10 @@ numpy
 pandas
 psutil
 scikit-learn
-nilearn
+# QSIPrep and QSIRecon pin nilearn 0.10.1; niworkflows 1.15, which MRIQC needs,
+# 0.11.1 or later. 0.11.1 is both: from 0.12, NiftiLabelsMasker.labels_ differs
+# (QSIRecon's scalar mapper then fails with KeyError: 0).
+nilearn==0.11.1
 niworkflows
 pybids
 dipy
