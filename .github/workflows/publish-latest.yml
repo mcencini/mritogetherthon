@@ -1,0 +1,50 @@
+# Publishes as :latest the images a QSI run on main built and tested, by hand:
+# for a run whose publish job did not run although its comparison passed. It
+# checks, through GitHub's API, that the QSI run on main for that commit passed
+# its comparison, then tags those very images (nothing is rebuilt).
+name: Publish latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "The main commit whose QSI run passed"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  CACHE: ghcr.io/${{ github.repository }}-cache
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The QSI run on main for that commit passed its comparison
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/qsi.yml/runs?head_sha=$SHA&branch=main&per_page=20" \
+                  -q '[.workflow_runs[] | select(.event == "workflow_run" and .conclusion == "success")][0].id')
+          test -n "$run" && test "$run" != null || { echo "no successful QSI run on main for $SHA"; exit 1; }
+          compare=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100" \
+                  -q '.jobs[] | select(.name == "compare") | .conclusion')
+          test "$compare" = success || { echo "run $run: compare $compare"; exit 1; }
+          echo "QSI run $run on main for $SHA passed its comparison"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish its images as :latest
+        run: |
+          for tag in latest "${{ inputs.sha }}"; do
+            docker buildx imagetools create -t "$IMAGE:$tag" \
+              "$CACHE:qsi-${{ inputs.sha }}-amd64" "$CACHE:qsi-${{ inputs.sha }}-arm64"
+          done
+          docker buildx imagetools inspect "$IMAGE:latest"
