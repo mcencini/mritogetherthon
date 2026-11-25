@@ -101,8 +101,8 @@ asked for in Discussions and added to the environment, for everyone.
 | [`tests/`](tests) | The launchers against a stand-in for Docker, the attendee's commands against a stand-in for GitHub, and a notebook in each kernel inside the image |
 | [`.github/`](.github) | The workflows, and the issue and discussion templates |
 
-- **Image:** every push to `main` builds the base environment on amd64 and
-  arm64 runners, starts it as the launcher does, runs `check-setup` and a
+- **Image:** every push to `main` that changes the image's recipe (`docker/`)
+  builds the base environment on amd64 and arm64 runners, starts it as the launcher does, runs `check-setup` and a
   notebook in each kernel, and publishes it as
   `ghcr.io/mcencini/mritogetherthon:base`. The QSI workflow then adds QSIPrep,
   QSIRecon and MRIQC (`docker/qsi`), runs their tests in it and in the official

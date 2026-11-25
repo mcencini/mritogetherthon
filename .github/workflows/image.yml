@@ -6,8 +6,16 @@
 name: Image
 
 on:
+  # A rebuild publishes new layers, which every attendee's launcher then
+  # downloads: main rebuilds only when the image's recipe changes. The hands-on
+  # material reaches the attendees without it (sync-material), and is tested by
+  # its pull requests, which build the image and run the day 1 notebook.
   push:
     branches: [main]
+    paths:
+      - docker/**
+      - .dockerignore
+      - .github/workflows/image.yml
   pull_request:
     paths:
       - docker/**
