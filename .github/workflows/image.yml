@@ -21,6 +21,7 @@ on:
       - docker/**
       - tests/smoke.py
       - tests/notebook.py
+      - tests/fixtures/**
       - handson/**
       - .dockerignore
       - .github/workflows/image.yml
@@ -65,8 +66,10 @@ jobs:
         run: docker exec mritogetherthon check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
-      - name: Run the day 1 notebook
-        run: docker exec mritogetherthon python /tests/notebook.py /handson/day1/placenta_b_optimisation.ipynb
+      # Day 1's notebook as completed: attendees get the exercise, whose gaps they
+      # fill, in handson/day1; this one runs end to end.
+      - name: Run day 1's completed notebook
+        run: docker exec mritogetherthon python /tests/notebook.py /tests/fixtures/day1_placenta_b_optimisation_complete.ipynb
       - name: Keep the work in the attendee's folder
         run: test -f work/smoke/python.ipynb && test -f work/smoke/julia.ipynb
       - name: Logs

@@ -1,8 +1,8 @@
-"""Run the protocol-optimisation notebook of day 1 as an attendee opens it.
+"""Run day 1's protocol-optimisation notebook, as completed, as an attendee would.
 
 Usage: ``docker exec mritogetherthon python /tests/notebook.py [notebook]``.
-The notebook, by default the one in the material the entry point downloaded, is
-copied to the attendee's folder and executed there, as an attendee's copy is, so
+The notebook, by default the completed one of tests/fixtures (attendees get the
+exercise, in handson/day1, whose gaps they fill in), is copied to the attendee's folder and executed there, as an attendee's copy is, so
 that the check covers ED_MRI and TADRED being installed, their results folder
 being writable by the attendee's user, and every cell running through to the
 end. Exits 1 when the notebook is missing or a cell fails.
@@ -16,7 +16,7 @@ from pathlib import Path
 import nbformat
 from nbclient import NotebookClient
 
-source = Path(sys.argv[1] if len(sys.argv) > 1 else Path.home() / "material/handson/day1/placenta_b_optimisation.ipynb")
+source = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).parent / "fixtures/day1_placenta_b_optimisation_complete.ipynb")
 if not source.is_file():
     sys.exit(f"{source} is not there")
 path = Path.home() / "smoke" / source.name
