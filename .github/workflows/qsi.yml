@@ -526,7 +526,9 @@ jobs:
         run: find junit -name truth_score.json | sort | while read -r f; do echo "== $f"; jq -c . "$f"; done
 
   publish:
-    if: (github.event_name == 'push' || github.event_name == 'workflow_run') && needs.compare.result == 'success'
+    # always(): on main the official images' jobs are skipped, and a skipped job
+    # upstream otherwise skips this one, whatever compare says.
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_run') && needs.compare.result == 'success'
     needs: compare
     runs-on: ubuntu-latest
     steps:
