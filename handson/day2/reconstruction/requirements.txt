@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+matplotlib-inline
+ipykernel
+jupyterlab
+nbconvert

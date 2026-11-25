@@ -9,7 +9,7 @@ on:
   # A rebuild publishes new layers, which every attendee's launcher then
   # downloads: main rebuilds only when the image's recipe changes. The hands-on
   # material reaches the attendees without it (sync-material), and is tested by
-  # its pull requests, which build the image and run the day 1 notebook.
+  # its pull requests, which build the image and run the days' notebooks.
   push:
     branches: [main]
     paths:
@@ -70,6 +70,8 @@ jobs:
       # fill, in handson/day1; this one runs end to end.
       - name: Run day 1's completed notebook
         run: docker exec mritogetherthon python /tests/notebook.py /tests/fixtures/day1_placenta_b_optimisation_complete.ipynb
+      - name: Run day 2's reconstruction notebook
+        run: docker exec mritogetherthon python /tests/notebook.py /handson/day2/reconstruction/day2_dwi_epi_reconstruction.ipynb
       - name: Keep the work in the attendee's folder
         run: test -f work/smoke/python.ipynb && test -f work/smoke/julia.ipynb
       - name: Logs

@@ -6,3 +6,8 @@ of the simulation in `simulation/`, and those of the reconstruction in
 the organisers copy to the pipeline if it wins.
 The stages' contracts are [`stages/simulation`](https://github.com/mcencini/mritogetherthon-pipeline/tree/main/stages/simulation) and
 [`stages/reconstruction`](https://github.com/mcencini/mritogetherthon-pipeline/tree/main/stages/reconstruction).
+
+- `reconstruction/day2_dwi_epi_reconstruction.ipynb`: reconstruct diffusion-weighted
+  EPI, on a phantom simulated from the day's sequence and on real brain data, with
+  BART. Its saved outputs are there to compare against; its own
+  [README](reconstruction/README.md) says what to look for.
