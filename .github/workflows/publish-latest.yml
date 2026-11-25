@@ -32,7 +32,8 @@ jobs:
           run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/qsi.yml/runs?head_sha=$SHA&branch=main&per_page=20" \
                   -q '[.workflow_runs[] | select(.event == "workflow_run" and .conclusion == "success")][0].id')
           test -n "$run" && test "$run" != null || { echo "no successful QSI run on main for $SHA"; exit 1; }
-          compare=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100" \
+          # (the run has more than a page of jobs)
+          compare=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs?per_page=100" \
                   -q '.jobs[] | select(.name == "compare") | .conclusion')
           test "$compare" = success || { echo "run $run: compare $compare"; exit 1; }
           echo "QSI run $run on main for $SHA passed its comparison"
