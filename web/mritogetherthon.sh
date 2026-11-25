@@ -16,6 +16,7 @@
 IMAGE=${MRITOGETHERTHON_IMAGE:-ghcr.io/mcencini/mritogetherthon}
 NAME=mritogetherthon
 PORT=${MRITOGETHERTHON_PORT:-8899}
+KOMAUI_PORT=${KOMAUI_PORT:-9384}
 HOME_DIR=${MRITOGETHERTHON_HOME:-$HOME/.mritogetherthon}
 WORK=${MRITOGETHERTHON_WORK:-$HOME/mritogetherthon}
 
@@ -135,7 +136,9 @@ else
         user="$(id -u):$(id -g)"
     fi
     docker rm -f "$NAME" >/dev/null 2>&1
-    docker run -d --restart unless-stopped --name "$NAME" -p "127.0.0.1:$PORT:8888" \
+    docker run -d --restart unless-stopped --name "$NAME" \
+        -p "127.0.0.1:$PORT:8888" \
+        -p "127.0.0.1:$KOMAUI_PORT:$KOMAUI_PORT" \
         --user "$user" -e "JUPYTER_TOKEN=$TOKEN" -e "MRITOGETHERTHON_IMAGE=$digest" \
         -v "$WORK:/home/mri" "$IMAGE" >/dev/null || exit 1
     echo "The environment is running, with your work in $WORK."

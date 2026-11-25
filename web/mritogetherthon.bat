@@ -11,6 +11,7 @@ setlocal
 if "%MRITOGETHERTHON_IMAGE%"=="" (set "IMAGE=ghcr.io/mcencini/mritogetherthon") else (set "IMAGE=%MRITOGETHERTHON_IMAGE%")
 set "NAME=mritogetherthon"
 if "%MRITOGETHERTHON_PORT%"=="" (set "PORT=8899") else (set "PORT=%MRITOGETHERTHON_PORT%")
+if "%KOMAUI_PORT%"=="" (set "KOMAUI_PORT=9384") else (set "KOMAUI_PORT=%KOMAUI_PORT%")
 if "%MRITOGETHERTHON_HOME%"=="" (set "HOME_DIR=%USERPROFILE%\.mritogetherthon") else (set "HOME_DIR=%MRITOGETHERTHON_HOME%")
 if "%MRITOGETHERTHON_WORK%"=="" (set "WORK=%USERPROFILE%\mritogetherthon") else (set "WORK=%MRITOGETHERTHON_WORK%")
 
@@ -80,7 +81,7 @@ if "%RUNNING%"=="true %AFTER%" (
 set "DIGEST="
 for /f "delims=" %%i in ('docker image inspect --format "{{index .RepoDigests 0}}" %IMAGE% 2^>nul') do set "DIGEST=%%i"
 call docker rm -f %NAME% >nul 2>&1
-call docker run -d --restart unless-stopped --name %NAME% -p 127.0.0.1:%PORT%:8888 -e "JUPYTER_TOKEN=%TOKEN%" -e "MRITOGETHERTHON_IMAGE=%DIGEST%" -v "%WORK%:/home/mri" %IMAGE% >nul
+call docker run -d --restart unless-stopped --name %NAME% -p 127.0.0.1:%PORT%:8888 -p 127.0.0.1:%KOMAUI_PORT%:%KOMAUI_PORT% -e "JUPYTER_TOKEN=%TOKEN%" -e "MRITOGETHERTHON_IMAGE=%DIGEST%" -v "%WORK%:/home/mri" %IMAGE% >nul
 if errorlevel 1 goto :failed
 echo The environment is running, with your work in %WORK%.
 
