@@ -183,8 +183,8 @@ jobs:
         run: docker exec mritogetherthon check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
-      - name: Run the day 1 notebook
-        run: docker exec mritogetherthon python /tests/notebook.py /handson/day1/placenta_b_optimisation.ipynb
+      - name: Run day 1's completed notebook
+        run: docker exec mritogetherthon python /tests/notebook.py /tests/fixtures/day1_placenta_b_optimisation_complete.ipynb
       # Exit code 2 is tests that fail, and 3 programs missing or checks failed:
       # the compare job judges both, so that the integration tests run whatever
       # they are, and one run shows every problem.
