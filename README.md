@@ -80,7 +80,7 @@ where its work is saved, and how it sends it to the organisers.
 
 | | |
 |---|---|
-| Notebooks | JupyterLab, Jupyter Notebook, Python 3.12 and Julia 1.12 kernels, Jupytext |
+| Notebooks | JupyterLab, Jupyter Notebook, Python 3.12 and Julia 1.10 kernels, Jupytext |
 | Sequences | PyPulseq |
 | Simulation | KomaMRI (KomaMRICore, KomaMRIFiles, KomaMRIPlots) |
 | Reconstruction | BART, SigPy, PyTorch (CPU) |
