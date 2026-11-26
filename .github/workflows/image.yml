@@ -10,15 +10,18 @@ on:
   # downloads: main rebuilds only when the image's recipe changes. The hands-on
   # material reaches the attendees without it (sync-material), and is tested by
   # its pull requests, which build the image and run the days' notebooks.
+  # docker/qsi is the QSI workflow's recipe (qsi.yml), not the base's.
   push:
     branches: [main]
     paths:
       - docker/**
+      - '!docker/qsi/**'
       - .dockerignore
       - .github/workflows/image.yml
   pull_request:
     paths:
       - docker/**
+      - '!docker/qsi/**'
       - tests/smoke.py
       - tests/notebook.py
       - tests/fixtures/**

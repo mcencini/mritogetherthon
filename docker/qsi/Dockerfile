@@ -561,4 +561,13 @@ RUN python /opt/qsi/qsiprep-scripts/fetch_templates.py --tf-dir "$TEMPLATEFLOW_H
  && chmod -R a+rwX /opt/templateflow /opt/dipy && chmod -R a+rX /home/qsirecon /opt/freesurfer /opt/synb0 \
  && trxviz-cli --help >/dev/null
 
+# ED_MRI's fix of edmri-optimise, which now passes its config's learning rate,
+# batch size and epochs (50 by default) to TADRED. Last, on the base's ED_MRI,
+# so that it reaches the attendees' environments as one small layer. After the
+# event, it moves to the base's EDMRI_REF and this goes.
+ARG EDMRI_REF=b08624070edfc24d423799ae906530e0bcdfa695
+RUN git -C /opt/ED_MRI fetch -q origin "$EDMRI_REF" \
+ && git -C /opt/ED_MRI checkout -q "$EDMRI_REF" \
+ && grep -q num_epochs /opt/ED_MRI/edmri/conf/optimise_default.yaml
+
 USER mri
