@@ -143,6 +143,13 @@ cp "$(python -I -c 'import mriqc, os; print(os.path.dirname(mriqc.__file__))')/_
 (cd mriqc && python -m pytest mriqc -o addopts= -ra -p no:cacheprovider -p no:datalad -n auto \
     --doctest-modules --ignore=mriqc/bin --ignore=mriqc/interfaces/transitional.py \
     --junitxml="${REPORTS:-$HOME}/mriqc.xml") || status=1
+# KomaMRI whole and MRIReco, the image's last Julia layer: they load, and
+# KomaUI's browser server answers on port 9384, which the launchers publish.
+julia -e 'using KomaMRI, MRIReco, Downloads
+    w = KomaUI(browser=true, host="0.0.0.0", port=9384, return_window=true, verbose=false)
+    page = String(take!(Downloads.download("http://127.0.0.1:9384/", IOBuffer())))
+    close(w)
+    occursin("<html", lowercase(page)) || exit(1)' >/dev/null 2>&1 || broken="${broken:-} KomaUI"
 # DTIPlayground's tests, from its tag, at the version installed.
 version=$(python -c 'from importlib.metadata import version; print(version("dtiplayground"))')
 rm -rf dtiplayground

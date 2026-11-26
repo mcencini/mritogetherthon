@@ -570,4 +570,24 @@ RUN git -C /opt/ED_MRI fetch -q origin "$EDMRI_REF" \
  && git -C /opt/ED_MRI checkout -q "$EDMRI_REF" \
  && grep -q num_epochs /opt/ED_MRI/edmri/conf/optimise_default.yaml
 
+# KomaMRI whole (day 2: its browser UI, KomaUI, which a notebook serves on port
+# 9384, which the launchers publish) and MRIReco, added to the base's Julia
+# environment with every version it has kept, and precompiled as the base's
+# packages are. Only what they add is made readable, so that the layer holds
+# only that. After the event, they move to docker/julia and this goes.
+RUN touch /tmp/before \
+ && JULIA_DEPOT_PATH=/opt/julia/depot: JULIA_PROJECT=/opt/julia/env \
+    JULIA_CPU_TARGET="$(cat /opt/julia-cpu-target)" \
+    julia -e 'using Pkg; \
+      Pkg.add([PackageSpec(name="KomaMRI", version="0.15.0"), PackageSpec(name="MRIReco", version="0.9.2")]; \
+              preserve=Pkg.PRESERVE_ALL); \
+      Pkg.precompile(); using KomaMRI, MRIReco' \
+ && find /opt/julia -newer /tmp/before -exec chmod a+rX {} + \
+ && rm /tmp/before
+
+# The attendee's commands and welcome as the base recipe has them since (team
+# use, and submit's pull request template), until the base is rebuilt.
+COPY --chmod=755 docker/team docker/submit /usr/local/bin/
+COPY docker/START_HERE.md /usr/local/share/mritogetherthon/START_HERE.md
+
 USER mri

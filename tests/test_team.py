@@ -30,6 +30,7 @@ api\ -X\ PUT*) exit 0 ;;
 api\ user/repository_invitations\ *) echo 5 ;;
 api\ -X\ PATCH*) exit 0 ;;
 pr\ list*) [ -f "$PRS" ] && cat "$PRS"; exit 0 ;;
+api\ repos/*/pulls\?*base=team-*) [ -f "$PULLS" ] && cat "$PULLS"; exit 0 ;;
 pr\ create*) echo "https://github.com/org/pipeline/pull/1" | tee "$PRS" ;;
 *) echo "unexpected: $*" >&2; exit 1 ;;
 esac
@@ -57,7 +58,9 @@ def world(tmp_path):
     material = repository(tmp_path / "material", {
         "handson/day1/notebook.txt": "{}\n", "handson/day1/README.md": "tutors' note\n",
         "data/phantoms/p1.phantom": "p\n", "answers/day1/notebook.txt": "{}\n", "docker/Dockerfile": "not material\n"})
-    pipeline = repository(tmp_path / "pipeline", {"stages/sequence/README.md": "contract\n"})
+    pipeline = repository(tmp_path / "pipeline", {
+        "stages/sequence/README.md": "contract\n",
+        ".github/pull_request_template.md": "**Team:** NN\n\n- [ ] Sequence\n"})
 
     bin = tmp_path / "bin"
     bin.mkdir()
@@ -83,6 +86,7 @@ def world(tmp_path):
             "PIPELINE_DIR": str(pipeline),
             "FORKS": str(tmp_path / "forks"),
             "PRS": str(tmp_path / "prs"),
+            "PULLS": str(tmp_path / "pulls"),
             "CALLS": str(tmp_path / "calls"),
             "GH_LOGIN": login,
         }
@@ -217,6 +221,47 @@ def test_submit_pushes_to_the_fork_and_opens_one_pull_request_to_the_teams_branc
     assert done.returncode == 0, done.stdout + done.stderr
     assert git("show", "main:day1/notebook.txt", cwd=fork) == '{"mine": 2}'
     assert (tmp_path / "calls").read_text().count("pr create") == 1
+
+
+def test_submit_describes_the_pull_request_with_the_template(world):
+    _, tmp_path, member = world
+    home, run = member("alice")
+    run("team", "07")
+    done = run("submit")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "--body **Team:** 07" in (tmp_path / "calls").read_text()
+
+
+def test_a_team_copies_another_team_s_stage_with_its_authors(world):
+    _, tmp_path, member = world
+    home, run = member("alice")
+    run("team", "07")
+    (home / "team/day2/simulation").mkdir(parents=True)
+    (home / "team/day2/simulation/simulate.jl").write_text("simulate()\n")
+    assert run("submit").returncode == 0
+    fork = tmp_path / "forks/alice/pipeline.git"
+    (tmp_path / "pulls").write_text(f"https://github.com/org/pipeline/pull/1 {git('rev-parse', 'main', cwd=fork)} {fork}\n")
+    (tmp_path / "prs").unlink()
+
+    home, run = member("bob")
+    run("team", "12")
+    done = run("team", "use", "07", "day2/simulation")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert (home / "team/day2/simulation/simulate.jl").read_text() == "simulate()\n"
+    source = (home / "team/day2/simulation/SOURCE.md").read_text()
+    assert "team 07" in source and "pull/1" in source and "- alice" in source
+    # A folder of the team's own is never overwritten, but can be copied beside it.
+    assert run("team", "use", "07", "day2/simulation").returncode == 1
+    done = run("team", "use", "07", "day2/simulation", "day2/simulation-07")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert (home / "team/day2/simulation-07/simulate.jl").is_file()
+
+
+def test_a_team_without_a_pull_request_has_nothing_to_copy(world):
+    home, run = world[2]("bob")
+    run("team", "12")
+    done = run("team", "use", "07", "day2/simulation")
+    assert done.returncode == 1 and "no pull request" in done.stdout
 
 
 def test_submit_needs_a_team(world):

@@ -47,12 +47,13 @@ if argv[0] == "pull":
 if argv[0] == "inspect":
     if not state.get("container"):
         done(1)
-    done(0, "true " + state["container"] + "\n")
+    done(0, "true " + state["container"] + " " + str(state.get("ports", 2)) + "\n")
 if argv[0] == "rm":
     state["container"] = None
     done()
 if argv[0] == "run":
     state["container"] = state["local"]
+    state["ports"] = argv.count("-p")
     done()
 done(1)
 '''
@@ -61,10 +62,12 @@ done(1)
 FAKE_CURL = "import sys; sys.exit(0)\n"
 
 
-def _run(tmp_path, local, published, daemon=True, container=None, rootless=False, link=None, denied=False):
+def _run(tmp_path, local, published, daemon=True, container=None, rootless=False, link=None, denied=False,
+         ports=2):
     state = tmp_path / "docker.json"
     state.write_text(json.dumps({"daemon": daemon, "local": local, "published": published,
-                                 "container": container, "rootless": rootless, "denied": denied, "calls": []}))
+                                 "container": container, "ports": ports, "rootless": rootless,
+                                 "denied": denied, "calls": []}))
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
     (bin_dir / "docker.py").write_text(FAKE_DOCKER)
@@ -94,6 +97,7 @@ def _run(tmp_path, local, published, daemon=True, container=None, rootless=False
            "XDG_DATA_HOME": str(tmp_path / "share"), "XDG_CONFIG_HOME": str(tmp_path / "config")}
     env.pop("MRITOGETHERTHON_IMAGE", None)
     env.pop("MRITOGETHERTHON_PORT", None)
+    env.pop("MRITOGETHERTHON_UI_PORT", None)
     done = subprocess.run(command, env=env, input="", capture_output=True, text=True, timeout=120)
     return done, json.loads(state.read_text())["calls"], home, work
 
@@ -116,6 +120,7 @@ def test_an_absent_image_is_installed_and_started_on_the_attendee_s_folder(tmp_p
     run = calls[-1]
     assert run[0] == "run" and run[-1] == IMAGE
     assert "127.0.0.1:8899:8888" in run
+    assert "127.0.0.1:9384:9384" in run
     assert f"{work}:/home/mri" in run
     assert f"MRITOGETHERTHON_IMAGE={IMAGE}@sha256:new" in run
     token = (home / "token").read_text().strip()
@@ -145,6 +150,15 @@ def test_a_container_running_the_newest_image_keeps_running(tmp_path):
     assert "Nothing to do" in done.stdout
     assert "JupyterLab: http" not in done.stdout
     assert not any(call[0] in ("rm", "run") for call in calls)
+
+
+@needs_shell
+def test_a_container_without_the_ui_s_port_is_made_again(tmp_path):
+    done, calls, _, _ = _run(tmp_path, "sha256:new", "sha256:new", container="sha256:new", ports=1)
+
+    assert done.returncode == 0, _output(done)
+    assert ["rm", "-f", "mritogetherthon"] in calls
+    assert calls[-1][0] == "run" and "127.0.0.1:9384:9384" in calls[-1]
 
 
 @needs_shell

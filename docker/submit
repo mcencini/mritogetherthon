@@ -42,9 +42,14 @@ git push -q origin main \
 url=$(gh pr list --repo "$UPSTREAM" --state open --base "team-$number" \
         --json url,headRefName,headRepositoryOwner \
         --jq ".[] | select(.headRefName == \"main\" and .headRepositoryOwner.login == \"$owner\") | .url")
+# Its description is the pipeline repository's template, with the team's
+# checklist of stages, for the team to tick on GitHub.
 if [ -z "$url" ]; then
+    template=.github/pull_request_template.md
+    if [ -f "$template" ]; then body=$(sed "s/NN/$number/g" "$template"); else body="The work of team $number."; fi
     url=$(gh pr create --repo "$UPSTREAM" --head "$owner:main" --base "team-$number" \
-            --title "Team $number" --body "The work of team $number.")
+            --title "Team $number" --body "$body")
+    echo "Tick the stages your team developed in its description: $url"
 fi
 echo
 echo "Sent: $url"

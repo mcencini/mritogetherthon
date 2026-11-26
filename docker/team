@@ -6,6 +6,9 @@
 #   team 07            you make team 07's fork
 #   team add bob carol you invite teammates, by GitHub login, to work on it too
 #   team 07 alice      you join team 07, whose fork alice made
+#   team use 12 day2/simulation
+#                      you copy that folder of team 12's pull request into
+#                      ~/team, to build on another team's stage
 #
 # Joining needs no GitHub account: the fork is public, so you can copy it and
 # work in your own notebooks. To push to it, log in to GitHub, be invited by the
@@ -14,11 +17,14 @@ TEAMDIR=${TEAM_DIR:-$HOME/team}
 UPSTREAM=${PIPELINE_REPO:-mcencini/mritogetherthon-pipeline}
 GITHUB=${GITHUB_URL:-https://github.com}
 NAME=${UPSTREAM#*/}
+API=${GITHUB_API:-https://api.github.com}
 
 usage() {
     echo "team NN             make team NN's fork, if you are the first of your team"
     echo "team add LOGIN ...  invite teammates, by their GitHub login"
     echo "team NN LOGIN       join team NN, whose fork LOGIN made"
+    echo "team use NN FOLDER [DEST]"
+    echo "                    copy FOLDER of team NN's pull request to ~/team/DEST (FOLDER by default)"
     exit 2
 }
 
@@ -34,7 +40,54 @@ copy_fork() {
     sync-material
 }
 
+# The latest pull request of team $1 to its branch: its address, its head
+# commit and the repository that has it. Public, so that a member without a
+# GitHub account can ask too.
+pull_of_team() {
+    query="repos/$UPSTREAM/pulls?state=all&base=team-$1&sort=updated&direction=desc&per_page=1"
+    format='.[0] | select(.head.repo != null) | "\(.html_url) \(.head.sha) \(.head.repo.clone_url)"'
+    if gh auth status >/dev/null 2>&1; then
+        gh api "$query" --jq "$format"
+    else
+        curl -fsSL "$API/$query" | python3 -c '
+import json, sys
+pulls = [p for p in json.load(sys.stdin) if p["head"]["repo"]]
+if pulls:
+    print(pulls[0]["html_url"], pulls[0]["head"]["sha"], pulls[0]["head"]["repo"]["clone_url"])'
+    fi
+}
+
 case "$1" in
+use)
+    [ $# -eq 3 ] || [ $# -eq 4 ] || usage
+    case "$2" in [0-9][0-9]) ;; *) usage ;; esac
+    other=$2 folder=${3%/} dest=${4:-$3}
+    dest=${dest%/}
+    [ -d "$TEAMDIR/.git" ] || { echo "Set up your team first: team NN"; exit 1; }
+    [ ! -e "$TEAMDIR/$dest" ] \
+        || { echo "~/team/$dest is there already: move it away, or copy to another folder: team use $other $folder FOLDER"; exit 1; }
+    pull=$(pull_of_team "$other")
+    [ -n "$pull" ] || { echo "Team $other has no pull request yet."; exit 1; }
+    set -- $pull
+    url=$1 sha=$2 clone=$3
+    git -C "$TEAMDIR" fetch -q "$clone" "$sha" || { echo "Team $other's work could not be downloaded from $clone"; exit 1; }
+    git -C "$TEAMDIR" cat-file -e "$sha:$folder" 2>/dev/null \
+        || { echo "Team $other's pull request has no folder $folder: see $url/files"; exit 1; }
+    mkdir -p "$TEAMDIR/$dest"
+    depth=$(echo "$folder" | awk -F/ '{print NF}')
+    git -C "$TEAMDIR" archive "$sha" "$folder" | tar -x --strip-components="$depth" -C "$TEAMDIR/$dest"
+    {
+        echo "# Source"
+        echo
+        echo "Copied from team $other: the folder \`$folder\` of $url,"
+        echo "at commit $sha, on $(date -u +%F)."
+        echo
+        echo "Authors:"
+        git -C "$TEAMDIR" log --format='- %an' "$sha" -- "$folder" | sort -u
+    } > "$TEAMDIR/$dest/SOURCE.md"
+    echo "Copied team $other's $folder to ~/team/$dest, with its authors in SOURCE.md: submit sends it with the rest."
+    echo "In your pull request, leave that stage unticked: it is team $other's."
+    ;;
 add)
     shift
     [ $# -gt 0 ] || usage

@@ -11,6 +11,8 @@ setlocal
 if "%MRITOGETHERTHON_IMAGE%"=="" (set "IMAGE=ghcr.io/mcencini/mritogetherthon") else (set "IMAGE=%MRITOGETHERTHON_IMAGE%")
 set "NAME=mritogetherthon"
 if "%MRITOGETHERTHON_PORT%"=="" (set "PORT=8899") else (set "PORT=%MRITOGETHERTHON_PORT%")
+rem KomaMRI's browser UI, which a notebook serves on the container's port 9384.
+if "%MRITOGETHERTHON_UI_PORT%"=="" (set "UI_PORT=9384") else (set "UI_PORT=%MRITOGETHERTHON_UI_PORT%")
 if "%MRITOGETHERTHON_HOME%"=="" (set "HOME_DIR=%USERPROFILE%\.mritogetherthon") else (set "HOME_DIR=%MRITOGETHERTHON_HOME%")
 if "%MRITOGETHERTHON_WORK%"=="" (set "WORK=%USERPROFILE%\mritogetherthon") else (set "WORK=%MRITOGETHERTHON_WORK%")
 
@@ -62,11 +64,12 @@ if "%BEFORE%"=="" (
     echo The environment was outdated and is updated.
 )
 
-rem A container already running the newest image is left as it is, so that the
-rem notebooks' kernels keep running; any other is made again, with the work kept.
+rem A container already running the newest image, with both ports published, is
+rem left as it is, so that the notebooks' kernels keep running; any other is made
+rem again, with the work kept.
 set "RUNNING="
-for /f "delims=" %%i in ('docker inspect --format "{{.State.Running}} {{.Image}}" %NAME% 2^>nul') do set "RUNNING=%%i"
-if "%RUNNING%"=="true %AFTER%" (
+for /f "delims=" %%i in ('docker inspect --format "{{.State.Running}} {{.Image}} {{len .HostConfig.PortBindings}}" %NAME% 2^>nul') do set "RUNNING=%%i"
+if "%RUNNING%"=="true %AFTER% 2" (
     echo The environment is already running.
     rem Run by hand, with nothing to install or update, there is nothing left to
     rem do: the Open JupyterLab button opens it, as does this address.
@@ -80,7 +83,7 @@ if "%RUNNING%"=="true %AFTER%" (
 set "DIGEST="
 for /f "delims=" %%i in ('docker image inspect --format "{{index .RepoDigests 0}}" %IMAGE% 2^>nul') do set "DIGEST=%%i"
 call docker rm -f %NAME% >nul 2>&1
-call docker run -d --restart unless-stopped --name %NAME% -p 127.0.0.1:%PORT%:8888 -e "JUPYTER_TOKEN=%TOKEN%" -e "MRITOGETHERTHON_IMAGE=%DIGEST%" -v "%WORK%:/home/mri" %IMAGE% >nul
+call docker run -d --restart unless-stopped --name %NAME% -p 127.0.0.1:%PORT%:8888 -p 127.0.0.1:%UI_PORT%:9384 -e "JUPYTER_TOKEN=%TOKEN%" -e "MRITOGETHERTHON_IMAGE=%DIGEST%" -v "%WORK%:/home/mri" %IMAGE% >nul
 if errorlevel 1 goto :failed
 echo The environment is running, with your work in %WORK%.
 
