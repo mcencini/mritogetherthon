@@ -5,7 +5,11 @@
 # same tests in the official images (tests/compare_junit.py). Published when no
 # test fails in ours only: from main, once image.yml has published :base, as
 # ghcr.io/mcencini/mritogetherthon:latest, the image the launchers start; from
-# the qsi branch, as :qsi.
+# the qsi branch, as :qsi. Main's runs are those the Image workflow starts once
+# it has published :base, and those started by hand on main (both
+# architectures), which build on :base as it is: for a change to docker/qsi
+# alone, which image.yml leaves to this workflow, they reuse every cached layer
+# up to the change, so that the attendees download only what changed.
 name: QSI image
 
 on:
@@ -219,7 +223,7 @@ jobs:
   # tests/reference (the images are pinned, and so are their results).
   baseline:
     needs: data
-    if: github.event_name != 'workflow_run'
+    if: github.ref != 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -314,7 +318,7 @@ jobs:
 
   integration-official:
     needs: data
-    if: github.event_name != 'workflow_run'
+    if: github.ref != 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -380,7 +384,7 @@ jobs:
 
   integration-recon-official:
     needs: data
-    if: github.event_name != 'workflow_run'
+    if: github.ref != 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -418,7 +422,7 @@ jobs:
       matrix:
         arch: ${{ fromJSON((inputs.arch == 'amd64' && '["amd64"]') || (inputs.arch == 'arm64' && '["arm64"]') || '["amd64", "arm64"]') }}
         modality: [T1w, bold]
-        image: ${{ fromJSON(github.event_name == 'workflow_run' && '["ours"]' || '["ours", "official"]') }}
+        image: ${{ fromJSON(github.ref == 'refs/heads/main' && '["ours"]' || '["ours", "official"]') }}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 180
     steps:
@@ -466,7 +470,7 @@ jobs:
           path: junit
           pattern: junit-*
       - name: The official images' reports, as saved, from main
-        if: github.event_name == 'workflow_run'
+        if: github.ref == 'refs/heads/main'
         run: cp -r tests/reference/junit-official-* junit/
       - name: Tests that fail in ours but pass in the official image
         run: |
@@ -528,7 +532,7 @@ jobs:
   publish:
     # always(): on main the official images' jobs are skipped, and a skipped job
     # upstream otherwise skips this one, whatever compare says.
-    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_run') && needs.compare.result == 'success'
+    if: always() && needs.compare.result == 'success' && (github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/main' && inputs.arch == 'both'))
     needs: compare
     runs-on: ubuntu-latest
     steps:
@@ -539,7 +543,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish one image for both architectures
         run: |
-          if [ "${{ github.event_name }}" = workflow_run ]; then tags="latest ${{ github.sha }}"
+          if [ "${{ github.ref }}" = refs/heads/main ]; then tags="latest ${{ github.sha }}"
           else tags="qsi qsi-${{ github.sha }}"; fi
           for tag in $tags; do
             docker buildx imagetools create -t "$IMAGE:$tag" \
