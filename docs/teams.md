@@ -1,6 +1,7 @@
 # Working as a team
 
-Every team builds the same pipeline for placenta diffusion MRI, one stage a day.
+Every team builds the same pipeline for placenta diffusion MRI, one stage a day on
+days 1 to 4, and joins it end to end on day 5.
 Your team keeps its work in a fork of the
 [pipeline repository](https://github.com/mcencini/mritogetherthon-pipeline) on
 GitHub, and sends it to the organisers at the end of each session.
@@ -65,6 +66,12 @@ committed, pushes to the team's fork, and opens a pull request from the fork's
 if it is open. Each notebook with results is sent as a page too, for the jury to
 read. You can do the same by hand, with git and the GitHub website: the pull
 request goes from your fork's `main` to `team-07`, never to `main`.
+
+The pull request as it stands at the end of day 5 is the team's final pipeline:
+what it must contain is in the [pipeline repository](https://github.com/mcencini/mritogetherthon-pipeline#final-submission).
+A stage your team did not build can be another team's: `team use 12
+day2/simulation` copies that folder of team 12's pull request to `~/team`, with a
+`SOURCE.md` naming its authors.
 
 Do not put data or large results in the repository: a notebook that needs other
 data downloads it from a public, permanent address such as Zenodo.

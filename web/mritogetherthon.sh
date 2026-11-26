@@ -16,6 +16,8 @@
 IMAGE=${MRITOGETHERTHON_IMAGE:-ghcr.io/mcencini/mritogetherthon}
 NAME=mritogetherthon
 PORT=${MRITOGETHERTHON_PORT:-8899}
+# KomaMRI's browser UI, which a notebook serves on the container's port 9384.
+UI_PORT=${MRITOGETHERTHON_UI_PORT:-9384}
 HOME_DIR=${MRITOGETHERTHON_HOME:-$HOME/.mritogetherthon}
 WORK=${MRITOGETHERTHON_WORK:-$HOME/mritogetherthon}
 
@@ -114,10 +116,11 @@ else
     echo "The environment was outdated and is updated."
 fi
 
-# A container already running the newest image is left as it is, so that the
-# notebooks' kernels keep running; any other is made again, with the work kept.
-running=$(docker inspect --format '{{.State.Running}} {{.Image}}' "$NAME" 2>/dev/null)
-if [ "$running" = "true $after" ]; then
+# A container already running the newest image, with both ports published, is
+# left as it is, so that the notebooks' kernels keep running; any other is made
+# again, with the work kept.
+running=$(docker inspect --format '{{.State.Running}} {{.Image}} {{len .HostConfig.PortBindings}}' "$NAME" 2>/dev/null)
+if [ "$running" = "true $after 2" ]; then
     echo "The environment is already running."
     # Run by hand, with nothing to install or update, the launcher has nothing
     # left to do: the Open JupyterLab button opens it, as does this address.
@@ -136,6 +139,7 @@ else
     fi
     docker rm -f "$NAME" >/dev/null 2>&1
     docker run -d --restart unless-stopped --name "$NAME" -p "127.0.0.1:$PORT:8888" \
+        -p "127.0.0.1:$UI_PORT:9384" \
         --user "$user" -e "JUPYTER_TOKEN=$TOKEN" -e "MRITOGETHERTHON_IMAGE=$digest" \
         -v "$WORK:/home/mri" "$IMAGE" >/dev/null || exit 1
     echo "The environment is running, with your work in $WORK."

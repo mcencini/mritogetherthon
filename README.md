@@ -71,7 +71,8 @@ every update. A shell on your computer opens with
 
 ## Working as a team
 
-Every team builds the same pipeline during days 1 to 4, one stage a day.
+Every team builds the same pipeline, one stage a day on days 1 to 4, and joins it
+end to end on day 5.
 [docs/teams.md](docs/teams.md) explains how a team sets up its fork of the
 [pipeline repository](https://github.com/mcencini/mritogetherthon-pipeline),
 where its work is saved, and how it sends it to the organisers.
@@ -82,8 +83,8 @@ where its work is saved, and how it sends it to the organisers.
 |---|---|
 | Notebooks | JupyterLab, Jupyter Notebook, Python 3.12 and Julia 1.12 kernels, Jupytext |
 | Sequences | PyPulseq |
-| Simulation | KomaMRI (KomaMRICore, KomaMRIFiles, KomaMRIPlots) |
-| Reconstruction | BART, SigPy, PyTorch (CPU) |
+| Simulation | KomaMRI, with its browser UI (KomaUI, on port 9384) |
+| Reconstruction | BART, MRIReco, SigPy, PyTorch (CPU) |
 | Analysis | DIPY, scikit-image, NiBabel, SciPy |
 | Files | ISMRMRD, h5py, pydicom, NiBabel |
 | Shell | bash, git, GitHub CLI, nano, vim |

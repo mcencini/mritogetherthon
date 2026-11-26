@@ -16,7 +16,8 @@ there, through every restart and update.
    organisers' originals are in `material`, updated every time you start the
    environment: do not work there.
 4. **Send your work.** One member of your team runs `submit` at the end of each
-   session.
+   session. On day 5, your pull request becomes your final pipeline:
+   [what it must contain](https://github.com/mcencini/mritogetherthon-pipeline#final-submission).
 
 [Working as a team](https://github.com/mcencini/mritogetherthon/blob/main/docs/teams.md)
 explains it all. Help: <https://github.com/mcencini/mritogetherthon/discussions>.
