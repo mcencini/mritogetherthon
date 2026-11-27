@@ -11,7 +11,7 @@ setlocal
 if "%MRITOGETHERTHON_IMAGE%"=="" (set "IMAGE=ghcr.io/mcencini/mritogetherthon") else (set "IMAGE=%MRITOGETHERTHON_IMAGE%")
 set "NAME=mritogetherthon"
 if "%MRITOGETHERTHON_PORT%"=="" (set "PORT=8899") else (set "PORT=%MRITOGETHERTHON_PORT%")
-if "%KOMAUI_PORT%"=="" (set "KOMAUI_PORT=9384") else (set "KOMAUI_PORT=%KOMAUI_PORT%")
+if "%KOMAUI_PORT%"=="" (set "KOMAUI_PORT=9501") else (set "KOMAUI_PORT=%KOMAUI_PORT%")
 if "%MRITOGETHERTHON_HOME%"=="" (set "HOME_DIR=%USERPROFILE%\.mritogetherthon") else (set "HOME_DIR=%MRITOGETHERTHON_HOME%")
 if "%MRITOGETHERTHON_WORK%"=="" (set "WORK=%USERPROFILE%\mritogetherthon") else (set "WORK=%MRITOGETHERTHON_WORK%")
 
