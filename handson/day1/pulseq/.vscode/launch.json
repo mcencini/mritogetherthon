@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: current file (step into pypulseq with F11)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            // allows F11 (step into) into the pypulseq source code
+            "justMyCode": false
+        }
+    ]
+}

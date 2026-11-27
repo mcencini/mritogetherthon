@@ -1,0 +1,4 @@
+# Packages for the Colab notebooks (installed by their setup cell).
+# numpy, scipy, matplotlib and torch are already installed in Colab; MRzeroCore is installed separately.
+pypulseq[sigpy]==1.5.0.post1
+ipympl
