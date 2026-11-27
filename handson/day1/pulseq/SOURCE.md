@@ -14,10 +14,11 @@ In the environment:
 - Work in your team's copy, `~/team/day1/pulseq`: the scripts write to
   `tools/export`, and `~/material` is read-only.
 - The notebooks, in `notebooks/`, run in the *Python 3* kernel. Their first cell
-  finds every package installed already.
+  finds every package installed already, and their plots appear in the cells,
+  zoomable.
 - The level files run in a terminal, with the environment's Python:
-  `python level1_beginner.py`. Without a display, the plots are saved in
-  `tools/export`.
+  `python level1_beginner.py`. A terminal has no screen for plot windows, so
+  they are saved in `tools/export` instead, where JupyterLab opens them.
 - The simulation downloads its phantom (178 KB) the first time it runs.
 
 To update it to a newer commit of the speakers, copy the repository at that
