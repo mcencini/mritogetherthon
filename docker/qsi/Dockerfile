@@ -590,4 +590,15 @@ RUN touch /tmp/before \
 COPY --chmod=755 docker/team docker/submit /usr/local/bin/
 COPY docker/START_HERE.md /usr/local/share/mritogetherthon/START_HERE.md
 
+# Day 1's Pulseq hands-on (handson/day1/pulseq): MRzero, for its simulation, on
+# the image's CPU-only PyTorch, and ipympl, for its zoomable plots, with every
+# package already installed kept as it is; and WORKSHOP_NO_VENV, so that its
+# level files run with the image's Python instead of setting up their own
+# (Python 3.13 and 1.5 GB of packages, in the attendee's folder).
+ENV WORKSHOP_NO_VENV=1
+RUN pip list --format=freeze > /tmp/constraints.txt \
+ && uv pip install --system --no-cache --constraints /tmp/constraints.txt mrzerocore==1.6.1 ipympl==0.10.0 \
+ && rm /tmp/constraints.txt \
+ && python -c "import MRzeroCore, ipympl, torch; assert torch.version.cuda is None, torch.version.cuda"
+
 USER mri

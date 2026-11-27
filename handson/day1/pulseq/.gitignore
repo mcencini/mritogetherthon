@@ -1,0 +1,21 @@
+# workshop environment, created by tools/install.py
+.venv/
+tools/.uv/
+tools/requirements*.tmp
+
+# generated output (.seq files, raw data, plots, phantom)
+tools/export/
+tools/simulation/data/
+*.seq
+*.raw
+*.raw.shape
+
+__pycache__/
+*.pyc
+*.egg-info/
+
+# editor: only the shared VS Code files are part of the repository
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/settings.json

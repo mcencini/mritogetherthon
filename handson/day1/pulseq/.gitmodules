@@ -1,0 +1,9 @@
+[submodule "external/pypulseq"]
+	path = tools/external/pypulseq
+	url = https://github.com/imr-framework/pypulseq.git
+	shallow = true
+	ignore = untracked
+[submodule "external/pulseq"]
+	path = tools/external/pulseq
+	url = https://github.com/pulseq/pulseq.git
+	shallow = true

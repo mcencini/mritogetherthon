@@ -1,0 +1,19 @@
+{
+    // keep the explorer clean: only tools/ and the three level files are shown
+    "files.exclude": {
+        ".venv": true,
+        ".github": true,
+        ".vscode": true,
+        ".gitignore": true,
+        ".gitmodules": true,
+        "LICENSE": true,
+        "**/__pycache__": true,
+        "**/*.egg-info": true,
+        "tools/.uv": true
+    },
+    "search.exclude": {
+        "tools/external": true
+    },
+    // the workshop environment .venv is created on the first start of a level file
+    "python.terminal.activateEnvironment": true
+}

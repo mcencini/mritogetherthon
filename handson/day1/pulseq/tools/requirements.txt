@@ -1,0 +1,10 @@
+# Installed automatically by tools/install.py (on the first start of a level file).
+#
+# pypulseq comes from the git submodule external/pypulseq (version 1.5.0.post1), installed "editable":
+# you can open and step into its source code in tools/external/pypulseq/src/pypulseq.
+# (downloaded as ZIP without the submodule: install.py uses pypulseq==1.5.0.post1 from PyPI instead)
+-e ./external/pypulseq[sigpy]
+numpy
+scipy
+matplotlib
+sigpy

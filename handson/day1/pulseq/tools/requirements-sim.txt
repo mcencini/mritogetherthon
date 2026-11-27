@@ -1,0 +1,7 @@
+# Optional: the simulation with MRzero (https://github.com/MRsources/MRzero-Core), CPU only (no CUDA).
+# Installed automatically by tools/install.py (skip it with:  python tools/install.py --no-sim).
+# Needs Python 3.10 - 3.13 (for 3.14, MRzero is not yet available on Linux / macOS).
+# Download ~200 MB, ~1 GB on disk (PyTorch, CPU version: the extra index below avoids the multi-GB CUDA version).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+MRzeroCore
