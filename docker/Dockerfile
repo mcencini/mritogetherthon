@@ -12,7 +12,9 @@
 
 FROM python:3.12-slim
 
-ARG JULIA_VERSION=1.10.4
+# The Julia of docker/julia/Manifest.toml. 1.10.4's libopenlibm
+# asks for an executable stack, which the glibc of this Debian refuses.
+ARG JULIA_VERSION=1.10.14
 ARG TARGETARCH
 
 # git and the GitHub CLI for the team's repository, BART for reconstruction,
@@ -32,10 +34,15 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.
 
 # finufft, the NUFFT of mri-nufft, has no prebuilt wheel for Linux on Arm, where
 # Apple Silicon's Docker runs: it is compiled there, with tools removed after.
+# finufft compiles for the building processor (-march=native) by default: on
+# GitHub's Arm runners that means SVE, which Apple's processors lack, and
+# finufft then dies of an illegal instruction on a Mac. It is compiled for the
+# base ARMv8 instead, which every 64-bit Arm processor runs.
 RUN if [ "$TARGETARCH" = arm64 ]; then \
       apt-get update \
    && apt-get install -y --no-install-recommends build-essential cmake libfftw3-dev \
-   && pip install --no-cache-dir finufft==2.5.1 \
+   && pip install --no-cache-dir --no-binary finufft \
+        --config-settings=cmake.define.FINUFFT_ARCH_FLAGS=-march=armv8-a finufft==2.5.1 \
    && apt-get purge -y --auto-remove build-essential cmake \
    && rm -rf /var/lib/apt/lists/*; \
     else pip install --no-cache-dir finufft==2.5.1; fi
