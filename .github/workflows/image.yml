@@ -67,6 +67,26 @@ jobs:
           curl -fs "http://127.0.0.1:8899/api/kernelspecs?token=smoke" | python3 -m json.tool
       - name: Check the setup
         run: docker exec mritogetherthon check-setup
+      # GitHub's Arm runners have instructions, SVE among them, that Apple's
+      # processors lack: code compiled for the runner passes here and dies of an
+      # illegal instruction on a Mac (#19). check-setup's Python, which imports
+      # every module and runs a NUFFT, is run again on an emulated Neoverse N1,
+      # an ARMv8.2 without SVE whose instructions Apple's M1 also has. Its
+      # subprocesses (Julia, BART) run natively. First, the emulator is shown
+      # to refuse SVE, so that a pass means something.
+      - name: Check the setup on a processor without SVE
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q qemu-user-static
+          echo 'int main(void) { __asm__ volatile("ptrue p0.b"); return 0; }' > sve.c
+          gcc -march=armv8.2-a+sve sve.c -o sve
+          qemu-aarch64-static -cpu max ./sve
+          if qemu-aarch64-static -cpu neoverse-n1 ./sve; then
+            echo "the emulated Neoverse N1 ran an SVE instruction"; exit 1
+          fi
+          docker cp /usr/bin/qemu-aarch64-static mritogetherthon:/tmp/qemu-aarch64
+          docker exec mritogetherthon /tmp/qemu-aarch64 -cpu neoverse-n1 \
+            /usr/local/bin/python3 /usr/local/bin/check-setup
       - name: Run a notebook in each kernel
         run: docker exec mritogetherthon python /tests/smoke.py
       # Day 1's notebook as completed: attendees get the exercise, whose gaps they
