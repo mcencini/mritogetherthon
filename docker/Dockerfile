@@ -12,7 +12,7 @@
 
 FROM python:3.12-slim
 
-ARG JULIA_VERSION=1.12.7
+ARG JULIA_VERSION=1.10.4
 ARG TARGETARCH
 
 # git and the GitHub CLI for the team's repository, BART for reconstruction,
