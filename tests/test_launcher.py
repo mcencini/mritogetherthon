@@ -116,7 +116,7 @@ def test_an_absent_image_is_installed_and_started_on_the_attendee_s_folder(tmp_p
     run = calls[-1]
     assert run[0] == "run" and run[-1] == IMAGE
     assert "127.0.0.1:8899:8888" in run
-    assert "127.0.0.1:9384:9384" in run
+    assert "127.0.0.1:9501:9501" in run
     assert f"{work}:/home/mri" in run
     assert f"MRITOGETHERTHON_IMAGE={IMAGE}@sha256:new" in run
     token = (home / "token").read_text().strip()
